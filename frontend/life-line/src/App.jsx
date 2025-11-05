@@ -1,15 +1,19 @@
 // App.js
 import React, { useState, useEffect } from "react";
 
-import Dashboard from "./components/Dashboard";
-
+import Dashboard from "./pages/Dashboard";
+import Alerts from "./pages/Alerts";
+import OptimalRoute from "./pages/OptimalRoute";
+import { Route, Routes } from "react-router-dom";
 
 function App() {
   return (
     <div className="App">
-      <Dashboard/>
-     
-     
+      <Routes>
+        <Route path="/" element={<Dashboard />} />
+        <Route path="/Alerts" element={<Alerts />} />
+        <Route path="/OptimalRoute" element={<OptimalRoute />} />
+      </Routes>
     </div>
   );
 }
