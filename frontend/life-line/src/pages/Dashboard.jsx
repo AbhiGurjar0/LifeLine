@@ -7,6 +7,7 @@ const Dashboard = () => {
   return (
     <>
      <DrawMap/>
+     {/* <MapExample/> */}
       
     </>
   );

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import L from "leaflet";
+import L, { PolyUtil } from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "leaflet-draw/dist/leaflet.draw.css";
 import "leaflet-draw";
@@ -11,94 +11,201 @@ import {
   Polyline,
 } from "react-leaflet";
 import Sidebar from "./Sidebar";
-import busIconImg from "../../assets/bus.png";
+const dotIcon = L.divIcon({
+  className: "dot-icon",
+  html: `<div style="width:8px;height:8px;background:red;border-radius:50%;"></div>`,
+});
+const dotIcon2 = L.divIcon({
+  className: "dot-icon",
+  html: `<div style="width:20px;height:20px;background:green;border-radius:50%;"></div>`,
+});
+
+const greenSignalIcon = L.divIcon({
+  className: "",
+  html: `
+    <div style="width:20px;height:40px;background:black;border-radius:4px;padding:4px;display:flex;flex-direction:column;justify-content:center;align-items:center;">
+      <div style="width:12px;height:12px;background:green;border-radius:50%;box-shadow:0 0 8px green;"></div>
+    </div>
+  `,
+});
+
+const redSignalIcon = L.divIcon({
+  className: "",
+  html: `
+    <div style="width:20px;height:40px;background:black;border-radius:4px;padding:4px;display:flex;flex-direction:column;justify-content:center;align-items:center;">
+      <div style="width:12px;height:12px;background:red;border-radius:50%;box-shadow:0 0 8px red;"></div>
+    </div>
+  `,
+});
 
 export default function LeafletDrawMap() {
+  const [coords, setCoords] = useState([]);
+  const [segments, setSegments] = useState([]);
   const [selectedPoint, setSelectedPoint] = useState(null);
-  const points = [
-    {
-      id: 1,
-      name: "Central & Broadway",
-      alert: "Emergency Override Active",
-      video:
-        "https://lh3.googleusercontent.com/aida-public/AB6AXuBeUa_D-PGEilZ98ew_KzN_Szviq0-arRMektddig3fwxx61O-s-x4bTk5Wa0GD6VBUMO0_0uU…",
-      metrics: { cars: 42, wait: "15s" },
-      position: [28.6139, 77.209],
-    },
+  //some random points
+  const [points, setPoints] = useState([]);
 
-    {
-      id: 2,
-      name: "Stop B",
-      alert: "Normal Operation",
-      video: "https://picsum.photos/800/450",
-      metrics: { cars: 30, wait: "20s" },
-      position: [28.7041, 77.1025],
-    },
-  ];
-  const [segments, setRoads] = useState([
-    {
-      id: "R1",
-      points: [
-        [28.6139, 77.209],
-        [28.7041, 77.1025],
-      ],
-      mid: { lat1: 26.55, lon1: 75.49, lat2: 28.38, lon2: 77.42 }, // midpoint used for TomTom lookup
-      severity: "moderate", // this gets updated from backend
-    },
+  //dummy values
+  const [dummy, setDummy] = useState(null);
+  const [movingPoints, setMovingPoints] = useState([
+    [26.912399, 75.787298],
+    [26.912399, 75.78739],
+    [26.912399, 75.787299],
+    [26.912399, 75.797298],
   ]);
-  // useEffect(() => {
-  async function updateTraffic() {
-    const updated = await Promise.all(
-      segments.map(async (road) => {
-        console.log("Calling backend for:", road);
+  const [routeChunks, setRouteChunks] = useState([]);
 
-        const res = await fetch(
-          `http://localhost:8000/route-with-traffic?start_lat=${road.mid.lat1}&start_lon=${road.mid.lon1}&end_lat=${road.mid.lat2}&end_lon=${road.mid.lon2}`
-        );
+  const [indexes, setIndexes] = useState([0, 0, 0, 0]);
 
-        const data = await res.json();
+  // looping for running coordinate
+  useEffect(() => {
+    if (!dummy || dummy.length === 0) return;
 
-        const severities = data.segments.map((seg) => seg[2]);
+    const interval = setInterval(() => {
+      setMovingPoints((prev) => prev.map((point, i) => dummy[indexes[i]]));
+      setIndexes((prev) => prev.map((i) => (i + 1) % dummy.length));
+    }, 1000); // every second or choose different speeds
 
-        function worst(sev) {
-          if (sev.includes("emergency")) return "emergency";
-          if (sev.includes("heavy")) return "heavy";
-          if (sev.includes("moderate")) return "moderate";
-          return "low";
+    return () => clearInterval(interval);
+  }, [dummy, indexes]);
+
+  //Calling road coordinates funtion
+  useEffect(() => {
+    async function getCord() {
+      let res = await fetch(
+        `https://api.openrouteservice.org/v2/directions/driving-car?api_key=eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImVjOWJlZDI3YzA1ODQ5ZGM4NTMzYTg1NjBmMTc3YjgyIiwiaCI6Im11cm11cjY0In0=&start=75.7873,26.9124&end=77.1025,28.7041`
+      );
+      res = await res.json();
+
+      // Extract the raw coordinates
+      let routeCoords = res.features[0].geometry.coordinates;
+      let segPoints = res.features[0].properties.segments[0].steps;
+
+      const stepCoords = segPoints.map((step) => {
+        const [start, end] = step.way_points;
+        return routeCoords.slice(start, end + 1);
+      });
+
+      // Convert [lon,lat] → [lat,lon]
+      let latlon = routeCoords.map(([lon, lat]) => [lat, lon]);
+
+      let latlon2 = stepCoords.map((step, index) => {
+        // Convert coords of this step
+        const converted = step.map(([lon, lat]) => [lat, lon]);
+
+        const firstPoint = converted[0];
+
+        setPoints((prev) => [
+          ...prev,
+          {
+            id: index,
+            name: "Point " + index,
+            alert: "Emergency Override Active",
+            video: "...",
+            metrics: { cars: 42, wait: "15s" },
+            position: firstPoint,
+          },
+        ]);
+
+        return converted;
+      });
+
+      setSegments(latlon2);
+
+      setCoords(latlon);
+      setDummy(latlon);
+    }
+    getCord();
+  }, []);
+
+  //for creating chunks
+  useEffect(() => {
+    if (coords.length > 0) {
+      console.log("✅ Data is now available:", coords);
+      function chunkRoute(coords, size = 30) {
+        const chunks = [];
+        for (let i = 0; i < coords.length; i += size) {
+          chunks.push(coords.slice(i, i + size));
         }
+        return chunks;
+      }
+      setRouteChunks(chunkRoute(coords, 30));
+    }
+  }, [coords]);
 
-        return { ...road, severity: worst(severities) };
-      })
-    );
-
-    setRoads(updated);
+  //spiliting colors on road
+  function pointNearChunk(point, chunk, threshold = 0.0005) {
+    return chunk.some(([lat, lon]) => {
+      return (
+        Math.abs(point[0] - lat) < threshold &&
+        Math.abs(point[1] - lon) < threshold
+      );
+    });
   }
+  const chunkStatus = routeChunks.map((chunk) => {
+    const count = movingPoints.filter((point) =>
+      pointNearChunk(point, chunk)
+    ).length;
+    return count >= 2 ? "red" : "green";
+  });
 
-  // useEffect(() => {
-  //   updateTraffic();
-  //   const interval = setInterval(updateTraffic, 15000);
-  //   return () => clearInterval(interval);
-  // }, [segments]);
+  const signalPosition = [26.933803, 75.83302 ];
 
-  //   const interval = setInterval(updateTraffic, 15000);
+  function pointsNearSignal(movingPoints, signalPosition, threshold = 0.0005) {
+    return movingPoints.some(
+      (point) =>
+        Math.abs(point[0] - signalPosition[0]) < threshold &&
+        Math.abs(point[1] - signalPosition[1]) < threshold
+    );
+  }
+  const [signalIcon, setSignalIcon] = useState(greenSignalIcon);
 
-  //   return () => clearInterval(interval);
-  // }, []);
-  // updateTraffic();
+  useEffect(() => {
+    const hasTraffic = pointsNearSignal(movingPoints, signalPosition);
 
-  const colors = {
-    low: "#38A169",
-    moderate: "#D69E2E",
-    heavy: "#E53E3E",
-    emergency: "#9F7AEA",
-  };
+    setSignalIcon(hasTraffic ? redSignalIcon : greenSignalIcon);
+  }, [movingPoints]); // runs whenever moving points move
 
-  const severityColors = {
-    low: "#38A169",
-    moderate: "#D69E2E",
-    heavy: "#E53E3E",
-    emergency: "#9F7AEA",
-  };
+  // async function updateTraffic() {
+  //   const updated = await Promise.all(
+  //     segments.map(async (road) => {
+  //       console.log("Calling backend for:", road);
+
+  //       const res = await fetch(
+  //         `http://localhost:8000/route-with-traffic?start_lat=${road.mid.lat1}&start_lon=${road.mid.lon1}&end_lat=${road.mid.lat2}&end_lon=${road.mid.lon2}`
+  //       );
+
+  //       const data = await res.json();
+
+  //       const severities = data.segments.map((seg) => seg[2]);
+
+  //       function worst(sev) {
+  //         if (sev.includes("emergency")) return "emergency";
+  //         if (sev.includes("heavy")) return "heavy";
+  //         if (sev.includes("moderate")) return "moderate";
+  //         return "low";
+  //       }
+
+  //       return { ...road, severity: worst(severities) };
+  //     })
+  //   );
+
+  //   setRoads(updated);
+  // }
+
+  // const colors = {
+  //   low: "#38A169",
+  //   moderate: "#D69E2E",
+  //   heavy: "#E53E3E",
+  //   emergency: "#9F7AEA",
+  // };
+
+  // const severityColors = {
+  //   low: "#38A169",
+  //   moderate: "#D69E2E",
+  //   heavy: "#E53E3E",
+  //   emergency: "#9F7AEA",
+  // };
 
   return (
     <>
@@ -152,31 +259,32 @@ export default function LeafletDrawMap() {
               style={{ height: "100vh" }}
             >
               <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-              {points.map((point) => (
+              {coords.length > 0 && <Polyline positions={coords} />}
+              {segments.map((seg, index) => (
                 <Marker
-                  key={point.id}
-                  position={point.position}
                   eventHandlers={{
-                    click: () => setSelectedPoint(point),
+                    click: () => {
+                      console.log(points);
+                      setSelectedPoint(points[index]);
+                    },
                   }}
+                  key={index}
+                  position={seg[0]}
+                  icon={dotIcon}
                 />
               ))}
-              {segments.map((seg, i) => {
-                if (i === 0) return null;
-                return (
+              {movingPoints.map((pos, i) => (
+                <Marker key={i} position={pos} icon={dotIcon2} />
+              ))}
+              {routeChunks &&
+                routeChunks.map((chunk, index) => (
                   <Polyline
-                    key={i}
-                    positions={[
-                      [segments[i - 1][0], segments[i - 1][1]],
-                      [segments[i][0], segments[i][1]],
-                    ]}
-                    pathOptions={{
-                      color: colors[segments[i][2]], // severity
-                      weight: 7,
-                    }}
+                    key={index}
+                    positions={chunk}
+                    pathOptions={{ color: chunkStatus[index], weight: 5 }}
                   />
-                );
-              })}
+                ))}
+              <Marker position={signalPosition} icon={signalIcon} />
             </MapContainer>
           </div>
         </div>
