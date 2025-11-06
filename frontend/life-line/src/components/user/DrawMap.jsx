@@ -3,6 +3,7 @@ import L, { PolyUtil } from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "leaflet-draw/dist/leaflet.draw.css";
 import "leaflet-draw";
+import useWebSocket from "react-use-websocket";
 import {
   MapContainer,
   TileLayer,
@@ -11,6 +12,7 @@ import {
   Polyline,
 } from "react-leaflet";
 import Sidebar from "./Sidebar";
+
 const dotIcon = L.divIcon({
   className: "dot-icon",
   html: `<div style="width:8px;height:8px;background:red;border-radius:50%;"></div>`,
@@ -28,6 +30,11 @@ const greenSignalIcon = L.divIcon({
     </div>
   `,
 });
+const carIcon = L.icon({
+  iconUrl: "./car.png", // Put a small car icon in public folder
+  iconSize: [40, 40],
+  iconAnchor: [20, 20],
+});
 
 const redSignalIcon = L.divIcon({
   className: "",
@@ -39,117 +46,46 @@ const redSignalIcon = L.divIcon({
 });
 
 export default function LeafletDrawMap() {
+  const isAdmin = true; // change to false for user
+  // const isAdmin = user.role === "admin";
+
   const [coords, setCoords] = useState([]);
-  const [segments, setSegments] = useState([]);
-  const [selectedPoint, setSelectedPoint] = useState(null);
-  //some random points
-  const [points, setPoints] = useState([]);
-
-  //dummy values
-  const [dummy, setDummy] = useState(null);
-  const [movingPoints, setMovingPoints] = useState([
-    [26.912399, 75.787298],
-    [26.912399, 75.78739],
-    [26.912399, 75.787299],
-    [26.912399, 75.797298],
-  ]);
+  const [dummy, setDummy] = useState([]);
   const [routeChunks, setRouteChunks] = useState([]);
+  const [chunkStatus, setChunkStatus] = useState([]);
+  const [movingPoints, setMovingPoints] = useState([]);
 
-  const [indexes, setIndexes] = useState([0, 0, 0, 0]);
-
-  // looping for running coordinate
   useEffect(() => {
-    if (!dummy || dummy.length === 0) return;
+   const socket = new WebSocket("ws://127.0.0.1:8000/ws");
 
-    const interval = setInterval(() => {
-      setMovingPoints((prev) => prev.map((point, i) => dummy[indexes[i]]));
-      setIndexes((prev) => prev.map((i) => (i + 1) % dummy.length));
-    }, 1000); // every second or choose different speeds
-
-    return () => clearInterval(interval);
-  }, [dummy, indexes]);
+    socket.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      if (data.moving_points) setMovingPoints(data.moving_points);
+      if (data.chunk_status) setChunkStatus(data.chunk_status);
+      if (data.route_chunks) setRouteChunks(data.route_chunks);
+    };
+    return () => socket.close();
+  }, []);
 
   //Calling road coordinates funtion
   useEffect(() => {
     async function getCord() {
       let res = await fetch(
-        `https://api.openrouteservice.org/v2/directions/driving-car?api_key=eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImVjOWJlZDI3YzA1ODQ5ZGM4NTMzYTg1NjBmMTc3YjgyIiwiaCI6Im11cm11cjY0In0=&start=75.7873,26.9124&end=77.1025,28.7041`
+        `http://localhost:8000/route?start_lat=26.9124&start_lon=75.7873&end_lat=28.7041&end_lon=77.1025
+`
       );
       res = await res.json();
-
-      // Extract the raw coordinates
-      let routeCoords = res.features[0].geometry.coordinates;
-      let segPoints = res.features[0].properties.segments[0].steps;
-
-      const stepCoords = segPoints.map((step) => {
-        const [start, end] = step.way_points;
-        return routeCoords.slice(start, end + 1);
-      });
-
-      // Convert [lon,lat] → [lat,lon]
-      let latlon = routeCoords.map(([lon, lat]) => [lat, lon]);
-
-      let latlon2 = stepCoords.map((step, index) => {
-        // Convert coords of this step
-        const converted = step.map(([lon, lat]) => [lat, lon]);
-
-        const firstPoint = converted[0];
-
-        setPoints((prev) => [
-          ...prev,
-          {
-            id: index,
-            name: "Point " + index,
-            alert: "Emergency Override Active",
-            video: "...",
-            metrics: { cars: 42, wait: "15s" },
-            position: firstPoint,
-          },
-        ]);
-
-        return converted;
-      });
-
-      setSegments(latlon2);
-
-      setCoords(latlon);
-      setDummy(latlon);
+      const routeCoords = res.route_coords;
+      const routeChunks = res.route_chunks;
+      setRouteChunks(routeChunks);
+      setCoords(routeCoords);
+      setDummy(routeCoords);
     }
     getCord();
   }, []);
 
-  //for creating chunks
-  useEffect(() => {
-    if (coords.length > 0) {
-      console.log("✅ Data is now available:", coords);
-      function chunkRoute(coords, size = 30) {
-        const chunks = [];
-        for (let i = 0; i < coords.length; i += size) {
-          chunks.push(coords.slice(i, i + size));
-        }
-        return chunks;
-      }
-      setRouteChunks(chunkRoute(coords, 30));
-    }
-  }, [coords]);
-
-  //spiliting colors on road
-  function pointNearChunk(point, chunk, threshold = 0.0005) {
-    return chunk.some(([lat, lon]) => {
-      return (
-        Math.abs(point[0] - lat) < threshold &&
-        Math.abs(point[1] - lon) < threshold
-      );
-    });
-  }
-  const chunkStatus = routeChunks.map((chunk) => {
-    const count = movingPoints.filter((point) =>
-      pointNearChunk(point, chunk)
-    ).length;
-    return count >= 2 ? "red" : "green";
-  });
-
-  const signalPosition = [26.933803, 75.83302 ];
+  //signal
+  const signalPosition = [28.5927, 77.1662];
 
   function pointsNearSignal(movingPoints, signalPosition, threshold = 0.0005) {
     return movingPoints.some(
@@ -165,47 +101,6 @@ export default function LeafletDrawMap() {
 
     setSignalIcon(hasTraffic ? redSignalIcon : greenSignalIcon);
   }, [movingPoints]); // runs whenever moving points move
-
-  // async function updateTraffic() {
-  //   const updated = await Promise.all(
-  //     segments.map(async (road) => {
-  //       console.log("Calling backend for:", road);
-
-  //       const res = await fetch(
-  //         `http://localhost:8000/route-with-traffic?start_lat=${road.mid.lat1}&start_lon=${road.mid.lon1}&end_lat=${road.mid.lat2}&end_lon=${road.mid.lon2}`
-  //       );
-
-  //       const data = await res.json();
-
-  //       const severities = data.segments.map((seg) => seg[2]);
-
-  //       function worst(sev) {
-  //         if (sev.includes("emergency")) return "emergency";
-  //         if (sev.includes("heavy")) return "heavy";
-  //         if (sev.includes("moderate")) return "moderate";
-  //         return "low";
-  //       }
-
-  //       return { ...road, severity: worst(severities) };
-  //     })
-  //   );
-
-  //   setRoads(updated);
-  // }
-
-  // const colors = {
-  //   low: "#38A169",
-  //   moderate: "#D69E2E",
-  //   heavy: "#E53E3E",
-  //   emergency: "#9F7AEA",
-  // };
-
-  // const severityColors = {
-  //   low: "#38A169",
-  //   moderate: "#D69E2E",
-  //   heavy: "#E53E3E",
-  //   emergency: "#9F7AEA",
-  // };
 
   return (
     <>
@@ -260,113 +155,23 @@ export default function LeafletDrawMap() {
             >
               <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
               {coords.length > 0 && <Polyline positions={coords} />}
-              {segments.map((seg, index) => (
-                <Marker
-                  eventHandlers={{
-                    click: () => {
-                      console.log(points);
-                      setSelectedPoint(points[index]);
-                    },
-                  }}
-                  key={index}
-                  position={seg[0]}
-                  icon={dotIcon}
-                />
-              ))}
-              {movingPoints.map((pos, i) => (
-                <Marker key={i} position={pos} icon={dotIcon2} />
-              ))}
+              {isAdmin &&
+                movingPoints.map((pos, i) => (
+                  <Marker key={i} position={pos} icon={carIcon} />
+                ))}
               {routeChunks &&
-                routeChunks.map((chunk, index) => (
+                routeChunks.map((chunk, i) => (
                   <Polyline
-                    key={index}
+                    key={i}
                     positions={chunk}
-                    pathOptions={{ color: chunkStatus[index], weight: 5 }}
+                    pathOptions={{ color: chunkStatus[i], weight: 6 }}
                   />
                 ))}
+
               <Marker position={signalPosition} icon={signalIcon} />
             </MapContainer>
           </div>
         </div>
-        {selectedPoint && (
-          <div
-            className="z-[9999] absolute top-20 right-4 w-96 rounded-2xl 
-  bg-white border border-gray-200 shadow-xl p-6 flex flex-col gap-6 animate-fadeIn"
-          >
-            {/* Header */}
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">
-                  {selectedPoint.name}
-                </h3>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-                  <p className="text-sm text-blue-600 font-medium">
-                    {selectedPoint.alert}
-                  </p>
-                </div>
-              </div>
-
-              <button
-                className="text-gray-400 hover:text-gray-600 transition"
-                onClick={() => setSelectedPoint(null)}
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* Video feed */}
-            <div className="w-full aspect-video rounded-lg overflow-hidden border border-gray-200">
-              <img
-                src={selectedPoint.video}
-                className="w-full h-full object-cover"
-                alt="location feed"
-              />
-            </div>
-
-            {/* Metrics */}
-            <div>
-              <h4 className="text-sm font-medium text-gray-600 mb-2">
-                Real-time Metrics
-              </h4>
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div className="bg-gray-50 border border-gray-200 p-3 rounded-lg">
-                  <p className="text-gray-500">Cars/Min</p>
-                  <p className="text-gray-900 font-semibold text-lg leading-tight">
-                    {selectedPoint.metrics.cars}
-                  </p>
-                </div>
-                <div className="bg-gray-50 border border-gray-200 p-3 rounded-lg">
-                  <p className="text-gray-500">Avg Wait</p>
-                  <p className="text-gray-900 font-semibold text-lg leading-tight">
-                    {selectedPoint.metrics.wait}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Controls */}
-            <div>
-              <h4 className="text-sm font-medium text-gray-800 mb-2">
-                Manual Override
-              </h4>
-              <div className="flex gap-3">
-                <button
-                  className="flex-1 bg-[#4f46e5] text-white hover:bg-primary-dark 
-        rounded-lg py-2 text-sm font-semibold transition"
-                >
-                  Optimize
-                </button>
-                <button
-                  className="flex-1 bg-red-500 text-white hover:bg-red-600 
-        rounded-lg py-2 text-sm font-semibold transition"
-                >
-                  All Red
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </>
   );
