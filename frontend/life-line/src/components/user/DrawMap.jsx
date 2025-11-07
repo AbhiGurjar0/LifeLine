@@ -46,46 +46,70 @@ const redSignalIcon = L.divIcon({
 });
 
 export default function LeafletDrawMap() {
-  const isAdmin = true; // change to false for user
-  // const isAdmin = user.role === "admin";
-
+  const isAdmin = true;
   const [coords, setCoords] = useState([]);
-  const [dummy, setDummy] = useState([]);
   const [routeChunks, setRouteChunks] = useState([]);
   const [chunkStatus, setChunkStatus] = useState([]);
   const [movingPoints, setMovingPoints] = useState([]);
 
+  // ✅ WebSocket connection
   useEffect(() => {
-   const socket = new WebSocket("ws://127.0.0.1:8000/ws");
+    let socket = new WebSocket("ws://localhost:8000/ws");
+
+    socket.onopen = () => {
+      console.log("WebSocket connection established");
+    };
 
     socket.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      if (data.moving_points) setMovingPoints(data.moving_points);
-      if (data.chunk_status) setChunkStatus(data.chunk_status);
-      if (data.route_chunks) setRouteChunks(data.route_chunks);
+      try {
+        const data = JSON.parse(event.data);
+        console.log("Received:", data);
+
+        // Update only the status and points, NOT route_chunks
+        if (data.moving_points) setMovingPoints(data.moving_points);
+        if (data.chunk_status) setChunkStatus(data.chunk_status);
+        // DON'T update routeChunks here - it's already set from /route
+      } catch (error) {
+        console.error("Failed to parse WebSocket message:", event.data, error);
+      }
     };
-    return () => socket.close();
+
+    socket.onerror = (error) => {
+      console.error("WebSocket error:", error);
+    };
+
+    return () => {
+      console.log("Closing WebSocket connection");
+      socket.close();
+    };
   }, []);
 
-  //Calling road coordinates funtion
+  // ✅ Fetch route coordinates once
   useEffect(() => {
     async function getCord() {
-      let res = await fetch(
-        `http://localhost:8000/route?start_lat=26.9124&start_lon=75.7873&end_lat=28.7041&end_lon=77.1025
-`
-      );
-      res = await res.json();
-      const routeCoords = res.route_coords;
-      const routeChunks = res.route_chunks;
-      setRouteChunks(routeChunks);
-      setCoords(routeCoords);
-      setDummy(routeCoords);
+      try {
+        let res = await fetch(
+          `http://localhost:8000/route?start_lat=28.6240&start_lon=77.1925&end_lat=28.628646&end_lon=77.226826 `
+        );
+        res = await res.json();
+
+        const routeCoords = res.route_coords;
+        const routeChunksData = res.route_chunks;
+
+        setCoords(routeCoords);
+        setRouteChunks(routeChunksData);
+
+        // Initialize chunk_status with green (until WebSocket updates)
+        setChunkStatus(new Array(routeChunksData.length).fill("green"));
+      } catch (error) {
+        console.error("Error fetching route:", error);
+      }
     }
     getCord();
   }, []);
 
   //signal
-  const signalPosition = [28.5927, 77.1662];
+  const signalPosition = [28.635, 77.210];
 
   function pointsNearSignal(movingPoints, signalPosition, threshold = 0.0005) {
     return movingPoints.some(
@@ -160,6 +184,7 @@ export default function LeafletDrawMap() {
                   <Marker key={i} position={pos} icon={carIcon} />
                 ))}
               {routeChunks &&
+                chunkStatus &&
                 routeChunks.map((chunk, i) => (
                   <Polyline
                     key={i}
