@@ -15,8 +15,10 @@ from datetime import datetime
 import joblib
 import sys
 import os
+import numpy as np
+import math
 
-sys.path.append(os.path.join(os.path.dirname(__file__), 'model'))
+sys.path.append(os.path.join(os.path.dirname(__file__), "model"))
 
 # Load model and scaler
 from train_signal_model import TrafficLSTM  # ensure class is importable
@@ -28,15 +30,19 @@ model.eval()
 scaler = joblib.load("signal_scaler.gz")
 
 
-# predicting density 
-def predict_next_density(current_density):
+# predicting density
+def predict_next_density(current_NS, current_EW):
     now = datetime.now()
-    features = [[current_density, now.hour, now.weekday()]]
-    scaled = scaler.transform(features)
-    x = torch.tensor(scaled, dtype=torch.float32)
-    pred_scaled = model(x)
-    pred = scaler.inverse_transform([[pred_scaled.item(), now.hour, now.weekday()]])[0][0]
-    return max(pred, 0)
+    x = np.array([[current_NS, current_EW, now.hour, now.weekday()]])
+    x_scaled = scaler.transform(x)
+    x_tensor = torch.tensor(x_scaled, dtype=torch.float32)
+    with torch.no_grad():
+        pred = model(x_tensor).numpy()[0]
+    # inverse transform
+    inv = scaler.inverse_transform(
+        [[pred[0], pred[1], now.hour / 23, now.weekday() / 6]]
+    )[0]
+    return int(max(0, inv[0])), int(max(0, inv[1]))
 
 
 DATA_FILE = "traffic_history.csv"
@@ -45,7 +51,7 @@ DATA_FILE = "traffic_history.csv"
 if not os.path.exists(DATA_FILE):
     with open(DATA_FILE, "w", newline="") as f:
         writer = csv.writer(f)
-        writer.writerow(["timestamp", "hour", "weekday", "density"])
+        writer.writerow(["timestamp", "hour", "weekday", "NS_density", "EW_density"])
 
 
 load_dotenv()
@@ -66,7 +72,9 @@ moving_points = []  # 10 vehicles
 route_coords = []  # full path
 route_chunks = []
 chunk_status = []
-signal_position = [28.635, 77.210]
+
+signal_position = [28.5677, 77.2080]
+last_data_packet = {}
 
 clients = set()
 
@@ -101,7 +109,7 @@ def route(start_lat: float, start_lon: float, end_lat: float, end_lon: float):
 
 # ---- SIMULATION LOOP ----
 async def simulation_loop():
-    global moving_points, chunk_status, route_chunks
+    global moving_points, chunk_status, route_chunks,last_data_packet
 
     index_offsets = [i * 20 for i in range(10)]
 
@@ -121,9 +129,8 @@ async def simulation_loop():
         for i in range(len(moving_points)):
             index_offsets[i] = (index_offsets[i] + 1) % len(route_coords)
             moving_points[i] = route_coords[index_offsets[i]]
-        
-        signal_position = [28.635, 77.210] 
-        
+
+        signal_position = [28.5677, 77.2080]
 
         # Compute traffic load per chunk
         chunk_status = []
@@ -137,21 +144,21 @@ async def simulation_loop():
                 )
             )
             chunk_status.append("red" if count >= 2 else "green")
-        
-        log_timer += 1
-        if log_timer >= 33:  # 0.3s * 33 ≈ 10 sec
-            record_traffic(signal_position, moving_points)
-            log_timer = 0
 
-        # Broadcast once per tick
+        log_timer += 1
+        if log_timer >= 10 : # roughly every 10 sec 
+            last_data_packet = record_traffic(signal_position, moving_points)
+            log_timer = 0
+            print("Recorded:", last_data_packet)
+
+        # Broadcast every tick (0.5 sec) with latest known data
         payload = {
             "moving_points": moving_points,
             "chunk_status": chunk_status,
             "route_chunks": route_chunks,
+            "data": last_data_packet,  # Always send last recorded
         }
-        # print(payload)
-
-        # Broadcast shared state
+            # Broadcast shared state
         for ws in list(clients):
             await ws.send_json(payload)
 
@@ -185,97 +192,101 @@ def read_root():
     return {"message": "WebSocket Traffic System Running ✅"}
 
 
-def compute_green_time(density):
-    base = 20
-    scale = density * 1.2
-    return int(min(max(base + scale, 20), 120))
+def get_direction(signal_pos, vehicle_pos):
+    lat_s, lon_s = signal_pos
+    lat_v, lon_v = vehicle_pos
 
+    dlat = lat_v - lat_s
+    dlon = lon_v - lon_s
 
+    # define angular direction from the signal (rough)
+    angle = math.degrees(
+        math.atan2(dlat, dlon)
+    )  # east=0°, north=90°, west=180/-180°, south=-90°
+
+    if -45 <= angle <= 45:
+        return "E"  # East
+    elif 45 < angle <= 135:
+        return "N"  # North
+    elif angle > 135 or angle < -135:
+        return "W"  # West
+    else:
+        return "S"  # South
 
 
 def record_traffic(signal_position, moving_points):
     # count vehicles near signal
-    density = sum(
-        abs(p[0] - signal_position[0]) < 0.0008
-        and abs(p[1] - signal_position[1]) < 0.0008
-        for p in moving_points
+
+    directions = {"N": 0, "S": 0, "E": 0, "W": 0}
+
+    for p in moving_points:
+        # Check if vehicle is near the signal (radius check)
+        if (
+            abs(p[0] - signal_position[0]) < 0.001
+            and abs(p[1] - signal_position[1]) < 0.001
+        ):
+            dir_label = get_direction(signal_position, p)
+            directions[dir_label] += 1
+
+    # you now have density per direction
+    density_N, density_S, density_E, density_W = (
+        directions["N"],
+        directions["S"],
+        directions["E"],
+        directions["W"],
     )
-    predicted_density = predict_next_density(density)
-    green_time = compute_green_time(predicted_density)
+
+    NS_density = density_N + density_S
+    EW_density = density_E + density_W
+    [predicted_NS, predicted_EW] = predict_next_density(NS_density, EW_density)
+    print(predicted_NS, predicted_EW)
+    signal_details = update_signal(predicted_NS, predicted_EW)
 
     now = datetime.now()
-    row = [int(now.timestamp()), now.hour, now.weekday(), density]
+    row = [
+        int(now.timestamp()),
+        now.hour,
+        now.weekday(),
+        NS_density,
+        EW_density,
+    ]
 
     with open(DATA_FILE, "a", newline="") as f:
         writer = csv.writer(f)
         writer.writerow(row)
 
-    print(f"📦 Logged data: {row}")  # debug
+        print(f"📦 Logged data per direction: {row}")
+    print(f"Predicted densities: NS={predicted_NS}, EW={predicted_EW}")
 
-
-
-
-
-# predicting dencity of traffic  usng previous data
-
-# df = pd.read_csv("traffic_history.csv")
-
-# scaler = MinMaxScaler()
-# scaled = scaler.fit_transform(df[['density', 'hour', 'weekday']].values)
-
-# X = torch.tensor(scaled[:-1], dtype=torch.float32)
-# y = torch.tensor(scaled[1:, 0], dtype=torch.float32)  # next-step density
-
-# class LSTMModel(nn.Module):
-#     def __init__(self):
-#         super().__init__()
-#         self.lstm = nn.LSTM(3, 32, batch_first=True)
-#         self.fc = nn.Linear(32, 1)
-
-#     def forward(self, x):
-#         x, _ = self.lstm(x.unsqueeze(0))
-#         return self.fc(x[:, -1])
-
-# model = LSTMModel()
-# optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
-# loss_fn = nn.MSELoss()
-
-# for epoch in range(200):
-#     optimizer.zero_grad()
-#     pred = model(X)
-#     loss = loss_fn(pred.squeeze(), y)
-#     loss.backward()
-#     optimizer.step()
-#     print(epoch, loss.item())
-
-# torch.save(model.state_dict(), "signal_model.pt")
+    return {"signal_details": signal_details}
 
 
 # for signal
 
-# def density_to_green_time(pred_density):
-#     base = 20  # min green seconds
-#     scale = pred_density * 1.2
-#     return int(min(max(base + scale, 20), 120))
+
+def density_to_green_time(pred_density):
+    base = 15  # min green seconds
+    scale = pred_density * 1.2
+    return int(min(max(base + scale, 20), 120))
 
 
-# # variables
+current_phase = "NS"
+remaining_time = 0
 
-# current_phase = "NS"
-# remaining_time = 0
 
-# def update_signal(predicted_A, predicted_B):
-#     global current_phase, remaining_time
+def update_signal(predicted_A, predicted_B):
+    global current_phase, remaining_time
 
-#     green_A = density_to_green_time(predicted_A)
-#     green_B = density_to_green_time(predicted_B)
+    green_A = density_to_green_time(predicted_A)
+    green_B = density_to_green_time(predicted_B)
 
-#     if remaining_time <= 0:
-#         if predicted_A > predicted_B:
-#             current_phase = "NS"
-#             remaining_time = green_A
-#         else:
-#             current_phase = "EW"
-#             remaining_time = green_B
-#     else:
-#         remaining_time -= 1
+    if remaining_time <= 0:
+        if predicted_A > predicted_B:
+            current_phase = "NS"
+            remaining_time = green_A
+        else:
+            current_phase = "EW"
+            remaining_time = green_B
+    else:
+        remaining_time -= 1
+    return {"curr_phase": current_phase, "remain_time": remaining_time}

@@ -30,6 +30,14 @@ const greenSignalIcon = L.divIcon({
     </div>
   `,
 });
+const greenSignalIcon2 = L.divIcon({
+  className: "",
+  html: `
+    <div style="width:40px;height:20px;background:black;border-radius:4px;padding:4px;display:flex;flex-direction:column;justify-content:center;align-items:center;">
+      <div style="width:12px;height:12px;background:green;border-radius:50%;box-shadow:0 0 8px green;"></div>
+    </div>
+  `,
+});
 const carIcon = L.icon({
   iconUrl: "./car.png", // Put a small car icon in public folder
   iconSize: [40, 40],
@@ -51,6 +59,9 @@ export default function LeafletDrawMap() {
   const [routeChunks, setRouteChunks] = useState([]);
   const [chunkStatus, setChunkStatus] = useState([]);
   const [movingPoints, setMovingPoints] = useState([]);
+  const [coords2, setCoords2] = useState([]);
+  const [routeChunks2, setRouteChunks2] = useState([]);
+  const [chunkStatus2, setChunkStatus2] = useState([]);
 
   // ✅ WebSocket connection
   useEffect(() => {
@@ -89,7 +100,29 @@ export default function LeafletDrawMap() {
     async function getCord() {
       try {
         let res = await fetch(
-          `http://localhost:8000/route?start_lat=28.6240&start_lon=77.1925&end_lat=28.628646&end_lon=77.226826 `
+          `http://localhost:8000/route?start_lat=28.612894&start_lon=77.229446 &end_lat=28.524428&end_lon=77.185456 `
+        );
+        res = await res.json();
+
+        const routeCoords = res.route_coords;
+        const routeChunksData = res.route_chunks;
+
+        setCoords2(routeCoords);
+        setRouteChunks2(routeChunksData);
+
+        // Initialize chunk_status with green (until WebSocket updates)
+        setChunkStatus2(new Array(routeChunksData.length).fill("blue"));
+      } catch (error) {
+        console.error("Error fetching route:", error);
+      }
+    }
+    getCord();
+  }, []);
+  useEffect(() => {
+    async function getCord() {
+      try {
+        let res = await fetch(
+          `http://localhost:8000/route?start_lat=28.593&start_lon=77.163 &end_lat=28.572207&end_lon=77.258475 `
         );
         res = await res.json();
 
@@ -109,22 +142,26 @@ export default function LeafletDrawMap() {
   }, []);
 
   //signal
-  const signalPosition = [28.635, 77.210];
-
-  function pointsNearSignal(movingPoints, signalPosition, threshold = 0.0005) {
-    return movingPoints.some(
-      (point) =>
-        Math.abs(point[0] - signalPosition[0]) < threshold &&
-        Math.abs(point[1] - signalPosition[1]) < threshold
-    );
-  }
+  const signalPosition = [28.5708, 77.20897];
   const [signalIcon, setSignalIcon] = useState(greenSignalIcon);
+  const signalPosition2 = [28.5709, 77.20899999];
+  const [signalIcon2, setSignalIcon2] = useState(greenSignalIcon2);
 
   useEffect(() => {
-    const hasTraffic = pointsNearSignal(movingPoints, signalPosition);
+    const timer = setTimeout(() => {
+      setSignalIcon((prev) =>
+        prev === greenSignalIcon ? redSignalIcon : greenSignalIcon
+      );
+    }, 15000);
 
-    setSignalIcon(hasTraffic ? redSignalIcon : greenSignalIcon);
-  }, [movingPoints]); // runs whenever moving points move
+    // Cleanup timer when component unmounts
+    return () => clearTimeout(timer);
+  }, [signalIcon]);
+  // useEffect(() => {
+  //   // const hasTraffic = pointsNearSignal(movingPoints, signalPosition);
+
+  //   setSignalIcon(hasTraffic ? redSignalIcon : greenSignalIcon);
+  // }, [movingPoints]); // runs whenever moving points move
 
   return (
     <>
@@ -179,6 +216,7 @@ export default function LeafletDrawMap() {
             >
               <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
               {coords.length > 0 && <Polyline positions={coords} />}
+              {coords2.length > 0 && <Polyline positions={coords2} />}
               {isAdmin &&
                 movingPoints.map((pos, i) => (
                   <Marker key={i} position={pos} icon={carIcon} />
@@ -192,8 +230,18 @@ export default function LeafletDrawMap() {
                     pathOptions={{ color: chunkStatus[i], weight: 6 }}
                   />
                 ))}
+                 {routeChunks2 &&
+                chunkStatus2 &&
+                routeChunks2.map((chunk, i) => (
+                  <Polyline
+                    key={i}
+                    positions={chunk}
+                    pathOptions={{ color: chunkStatus2[i], weight: 6 }}
+                  />
+                ))}
 
               <Marker position={signalPosition} icon={signalIcon} />
+               <Marker position={signalPosition2} icon={signalIcon2} />
             </MapContainer>
           </div>
         </div>
