@@ -145,11 +145,11 @@ async def simulation_loop():
             )
             chunk_status.append("red" if count >= 2 else "green")
 
-        log_timer += 1
-        if log_timer >= 10 : # roughly every 10 sec 
-            last_data_packet = record_traffic(signal_position, moving_points)
-            log_timer = 0
-            print("Recorded:", last_data_packet)
+        # log_timer += 1
+        # if log_timer >= 10 : # roughly every 10 sec 
+        last_data_packet = record_traffic(signal_position, moving_points)
+            # log_timer = 0
+        print("Recorded:", last_data_packet)
 
         # Broadcast every tick (0.5 sec) with latest known data
         payload = {
@@ -251,11 +251,11 @@ def record_traffic(signal_position, moving_points):
         EW_density,
     ]
 
-    with open(DATA_FILE, "a", newline="") as f:
-        writer = csv.writer(f)
-        writer.writerow(row)
+    # with open(DATA_FILE, "a", newline="") as f:
+    #     writer = csv.writer(f)
+    #     writer.writerow(row)
 
-        print(f"📦 Logged data per direction: {row}")
+    print(f"📦 Logged data per direction: {row}")
     print(f"Predicted densities: NS={predicted_NS}, EW={predicted_EW}")
 
     return {"signal_details": signal_details}
@@ -264,29 +264,77 @@ def record_traffic(signal_position, moving_points):
 # for signal
 
 
-def density_to_green_time(pred_density):
-    base = 15  # min green seconds
-    scale = pred_density * 1.2
-    return int(min(max(base + scale, 20), 120))
 
 
 current_phase = "NS"
 remaining_time = 0
 
 
+
 def update_signal(predicted_A, predicted_B):
     global current_phase, remaining_time
 
-    green_A = density_to_green_time(predicted_A)
-    green_B = density_to_green_time(predicted_B)
+    # --- BASE VALUES ---
+    BASE_GREEN = 15
+    MAX_EXTRA = 15       # can extend max +40s for congestion
+    MAX_GREEN = BASE_GREEN + MAX_EXTRA
+    MIN_GREEN = 5       # safety margin, even for low traffic
+    SECONDS_PER_VEHICLE = 1.2
+    
 
+    def calculate_green_time(vehicle_count):
+        base_time = MIN_GREEN + (vehicle_count * SECONDS_PER_VEHICLE)
+    
+        # Smooth curve for large numbers: saturates slowly
+        adjusted = min(MAX_GREEN, base_time ** 0.9)
+        return int(adjusted)
+
+    total_density = max(1, predicted_A + predicted_B)  # avoid divide-by-zero
+    green_NS = calculate_green_time(predicted_A)
+    green_EW = calculate_green_time(predicted_B)
+
+    # # proportional allocation of green time
+    # green_NS = int(max(MIN_GREEN, ratio_NS * MAX_GREEN))
+    # green_EW = int(max(MIN_GREEN, ratio_EW * MAX_GREEN))
+    # --- Fairness Tracker ---
+    # if one side has waited too long, force switch
+    MAX_WAIT = 30
+    if not hasattr(update_signal, "wait_time"):
+        update_signal.wait_time = {"NS": 0, "EW": 0}
+
+    # --- Signal Switching Logic ---
     if remaining_time <= 0:
-        if predicted_A > predicted_B:
+        # Check fairness before switching normally
+        if update_signal.wait_time["NS"] >=MAX_WAIT:
             current_phase = "NS"
-            remaining_time = green_A
-        else:
+            remaining_time = green_NS
+            update_signal.wait_time["NS"] = 0
+            update_signal.wait_time["EW"] += remaining_time
+        elif update_signal.wait_time["EW"] >=MAX_WAIT:
             current_phase = "EW"
-            remaining_time = green_B
+            remaining_time = green_EW
+            update_signal.wait_time["EW"] = 0
+            update_signal.wait_time["NS"] += remaining_time
+        else:
+            # Normal adaptive selection
+            if predicted_A > predicted_B:
+                current_phase = "NS"
+                remaining_time = green_NS
+            else:
+                current_phase = "EW"
+                remaining_time = green_EW
+
+            # update waiting times
+            update_signal.wait_time[current_phase] = 0
+            other = "EW" if current_phase == "NS" else "NS"
+            update_signal.wait_time[other] += remaining_time
     else:
         remaining_time -= 1
-    return {"curr_phase": current_phase, "remain_time": remaining_time}
+
+    return {
+        "curr_phase": current_phase,
+        "remain_time": remaining_time,
+        "green_A": green_NS,
+        "green_B": green_EW,
+        "wait_time": dict(update_signal.wait_time)
+    }

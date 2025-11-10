@@ -4,6 +4,9 @@ import "leaflet/dist/leaflet.css";
 import "leaflet-draw/dist/leaflet.draw.css";
 import "leaflet-draw";
 import useWebSocket from "react-use-websocket";
+import { Card, CardContent } from "../../components/ui/card";
+import { Progress } from "../../components/ui/progress";
+import { motion } from "framer-motion";
 import {
   MapContainer,
   TileLayer,
@@ -52,6 +55,14 @@ const redSignalIcon = L.divIcon({
     </div>
   `,
 });
+const redSignalIcon2 = L.divIcon({
+  className: "",
+  html: `
+    <div style="width:40px;height:20px;background:black;border-radius:4px;padding:4px;display:flex;flex-direction:column;justify-content:center;align-items:center;">
+      <div style="width:12px;height:12px;background:red;border-radius:50%;box-shadow:0 0 8px red;"></div>
+    </div>
+  `,
+});
 
 export default function LeafletDrawMap() {
   const isAdmin = true;
@@ -62,6 +73,46 @@ export default function LeafletDrawMap() {
   const [coords2, setCoords2] = useState([]);
   const [routeChunks2, setRouteChunks2] = useState([]);
   const [chunkStatus2, setChunkStatus2] = useState([]);
+
+  const [signals, setSignals] = useState({
+    id: 1,
+    name: "Signal 1 — Moti Bagh",
+    phase: "NS",
+    remaining: 15,
+    NS: 10,
+    EW: 5,
+    wait_time: 23,
+    prediction: "Medium",
+  });
+
+  // useEffect(() => {
+  //   const interval = setInterval(() => {
+  //     setSignals((prev) =>
+  //       prev.map((s) => ({
+  //         ...s,
+  //         remaining:
+  //           s.remaining > 0
+  //             ? s.remaining - 1
+  //             : Math.floor(Math.random() * 15 + 10),
+  //         NS: Math.max(0, s.NS + Math.floor(Math.random() * 3 - 1)),
+  //         EW: Math.max(0, s.EW + Math.floor(Math.random() * 3 - 1)),
+  //         prediction: ["Low", "Medium", "High"][Math.floor(Math.random() * 3)],
+  //         phase: s.remaining <= 0 ? (s.phase === "NS" ? "EW" : "NS") : s.phase,
+  //       }))
+  //     );
+  //   }, 1000);
+  //   return () => clearInterval(interval);
+  // }, []);
+
+  const getPhaseColor = (phase) =>
+    phase === "NS" ? "bg-green-500" : "bg-yellow-500";
+
+  const getPredictionColor = (level) =>
+    level === "High"
+      ? "text-red-500"
+      : level === "Medium"
+      ? "text-yellow-500"
+      : "text-green-500";
 
   // ✅ WebSocket connection
   useEffect(() => {
@@ -79,6 +130,24 @@ export default function LeafletDrawMap() {
         // Update only the status and points, NOT route_chunks
         if (data.moving_points) setMovingPoints(data.moving_points);
         if (data.chunk_status) setChunkStatus(data.chunk_status);
+        if (data.data) {
+          setSignals((prev) => ({
+            ...prev,
+            remaining: data.data.signal_details.remain_time,
+            NS: data.data.signal_details.green_A,
+            EW: data.data.signal_details.green_B,
+            phase: data.data.signal_details.curr_phase,
+            wait_time: data.data.signal_details.wait_time,
+          }));
+          setSignalIcon(() =>
+               data.data.signal_details.curr_phase=="NS"?redSignalIcon:greenSignalIcon
+          );
+           setSignalIcon2(() =>
+               data.data.signal_details.curr_phase=="EW"?redSignalIcon2:greenSignalIcon2
+          );
+          // console.log(data.data.signal_details.curr_phase)
+        }
+
         // DON'T update routeChunks here - it's already set from /route
       } catch (error) {
         console.error("Failed to parse WebSocket message:", event.data, error);
@@ -147,16 +216,14 @@ export default function LeafletDrawMap() {
   const signalPosition2 = [28.5709, 77.20899999];
   const [signalIcon2, setSignalIcon2] = useState(greenSignalIcon2);
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setSignalIcon((prev) =>
-        prev === greenSignalIcon ? redSignalIcon : greenSignalIcon
-      );
-    }, 15000);
+  // useEffect(() => {
+  //   const timer = setTimeout(() => {
 
-    // Cleanup timer when component unmounts
-    return () => clearTimeout(timer);
-  }, [signalIcon]);
+  //   }, 15000);
+
+  //   // Cleanup timer when component unmounts
+  //   return () => clearTimeout(timer);
+  // }, [signalIcon]);
   // useEffect(() => {
   //   // const hasTraffic = pointsNearSignal(movingPoints, signalPosition);
 
@@ -230,7 +297,7 @@ export default function LeafletDrawMap() {
                     pathOptions={{ color: chunkStatus[i], weight: 6 }}
                   />
                 ))}
-                 {routeChunks2 &&
+              {routeChunks2 &&
                 chunkStatus2 &&
                 routeChunks2.map((chunk, i) => (
                   <Polyline
@@ -241,8 +308,70 @@ export default function LeafletDrawMap() {
                 ))}
 
               <Marker position={signalPosition} icon={signalIcon} />
-               <Marker position={signalPosition2} icon={signalIcon2} />
+              <Marker position={signalPosition2} icon={signalIcon2} />
             </MapContainer>
+          </div>
+          <div className="w-1/3 bg-gray-900 p-4 overflow-y-auto h-screen text-white border-l border-gray-800">
+            <h2 className="text-2xl font-semibold mb-4 text-center text-blue-400">
+              🚦 Live Signal Dashboard
+            </h2>
+
+            {signals && (
+              <motion.div
+                key={signals.id}
+                whileHover={{ scale: 1.02 }}
+                className="mb-4"
+              >
+                <Card className="bg-gray-800 shadow-lg border border-gray-700">
+                  <CardContent className="p-4">
+                    <div className="flex justify-between items-center">
+                      <h3 className="font-semibold text-lg">{signals.name}</h3>
+                      <span
+                        className={`px-3 py-1 rounded-full text-xs ${getPhaseColor(
+                          signals.phase
+                        )}`}
+                      >
+                        {signals.phase === "NS" ? "North-South" : "East-West"}
+                      </span>
+                    </div>
+
+                    <div className="mt-3 text-sm">
+                      <p>
+                        ⏱️ Remaining Time:{" "}
+                        <span className="text-blue-400 font-bold">
+                          {signals.remaining}s
+                        </span>
+                      </p>
+                      <p>
+                        🚗 Vehicles: NS={signals.NS} | EW={signals.EW}
+                      </p>
+                      <p>current_phase = {signals.phase}</p>
+                      <p>
+                        Wait Time(NS) ={signals.wait_time.NS} | Wait Time(EW) =
+                        {signals.wait_time.EW}
+                      </p>
+                      <div className="flex items-center mt-2">
+                        <span>Congestion:</span>
+                        <Progress
+                          className="ml-2 w-full bg-gray-700"
+                          value={Math.min((signals.NS + signals.EW) * 3, 100)}
+                        />
+                      </div>
+                      <p className="mt-2">
+                        🧠 Prediction:{" "}
+                        <span
+                          className={`font-semibold ${getPredictionColor(
+                            signals.prediction
+                          )}`}
+                        >
+                          {signals.prediction}
+                        </span>
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
           </div>
         </div>
       </div>
