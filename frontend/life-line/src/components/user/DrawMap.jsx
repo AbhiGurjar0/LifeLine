@@ -73,6 +73,7 @@ export default function LeafletDrawMap() {
   const [coords2, setCoords2] = useState([]);
   const [routeChunks2, setRouteChunks2] = useState([]);
   const [chunkStatus2, setChunkStatus2] = useState([]);
+  const [routes, setRoutes] = useState({});
 
   const [signals, setSignals] = useState({
     id: 1,
@@ -84,25 +85,6 @@ export default function LeafletDrawMap() {
     wait_time: 23,
     prediction: "Medium",
   });
-
-  // useEffect(() => {
-  //   const interval = setInterval(() => {
-  //     setSignals((prev) =>
-  //       prev.map((s) => ({
-  //         ...s,
-  //         remaining:
-  //           s.remaining > 0
-  //             ? s.remaining - 1
-  //             : Math.floor(Math.random() * 15 + 10),
-  //         NS: Math.max(0, s.NS + Math.floor(Math.random() * 3 - 1)),
-  //         EW: Math.max(0, s.EW + Math.floor(Math.random() * 3 - 1)),
-  //         prediction: ["Low", "Medium", "High"][Math.floor(Math.random() * 3)],
-  //         phase: s.remaining <= 0 ? (s.phase === "NS" ? "EW" : "NS") : s.phase,
-  //       }))
-  //     );
-  //   }, 1000);
-  //   return () => clearInterval(interval);
-  // }, []);
 
   const getPhaseColor = (phase) =>
     phase === "NS" ? "bg-green-500" : "bg-yellow-500";
@@ -138,6 +120,10 @@ export default function LeafletDrawMap() {
             EW: data.data.signal_details.green_B,
             phase: data.data.signal_details.curr_phase,
             wait_time: data.data.signal_details.wait_time,
+            curr_NS:data.data.signals.signal2.ns,
+            curr_EW:data.data.signals.signal2.ew,
+            curr_state:data.data.signals.signal2.state,
+
           }));
           setSignalIcon(() =>
             data.data.signal_details.curr_phase == "EW"
@@ -149,7 +135,7 @@ export default function LeafletDrawMap() {
               ? redSignalIcon2
               : greenSignalIcon2
           );
-          // console.log(data.data.signal_details.curr_phase)
+        
         }
 
         // DON'T update routeChunks here - it's already set from /route
@@ -347,7 +333,10 @@ export default function LeafletDrawMap() {
                         </span>
                       </p>
                       <p>
-                        🚗 Vehicles: NS={signals.NS} | EW={signals.EW}
+                        🚗 Predicted Vehicles: NS={signals.NS} | EW={signals.EW}
+                      </p>
+                      <p>
+                        🚗 Current Vehicles: NS={signals.curr_NS} | EW={signals.curr_EW} | curr_state = {signals.curr_state}
                       </p>
                       <p>current_phase = {signals.phase}</p>
                       <p>

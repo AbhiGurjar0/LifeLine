@@ -120,6 +120,7 @@ async def simulation_loop():
     index_offsets = [i * 20 for i in range(20)]
     chunk_status = []
     log_timer = 0
+    tick_counter = 0
 
     while True:
         # 💤 Wait until the route and signals are ready
@@ -150,7 +151,8 @@ async def simulation_loop():
                 ((a[0] - b[0]) * 111000) ** 2 + ((a[1] - b[1]) * 111000) ** 2
             )
             return ans
-
+        
+        tick_counter += 1
         # 🚗 Move vehicles
         for i in range(len(moving_points)):
             should_move = True
@@ -173,12 +175,21 @@ async def simulation_loop():
                         should_move = False
 
             if should_move:
-                index_offsets[i] = (index_offsets[i] + 1) % len(route_coords)
-                moving_points[i] = route_coords[index_offsets[i]]
+                if tick_counter % 3 == 0:
+                    index_offsets[i] = (index_offsets[i] + 1) % len(route_coords)
+                    moving_points[i] = route_coords[index_offsets[i]]
+
+        # 🧾 Record and broadcast
+        last_data_packet = record_traffic(signals[0]["pos"], moving_points)
+        print("Recorded:", last_data_packet, flush=True)
 
         # 🧮 Count vehicles per signal
+        signal_counts = {}  # store per signal ID
+
         for signal in signals:
-            ns_vehicles, ew_vehicles = [], []
+            ns_vehicles = []
+            ew_vehicles = []
+
             for v in moving_points:
                 d = distance(v, signal["pos"])
                 if d < 25:
@@ -186,11 +197,21 @@ async def simulation_loop():
                         ns_vehicles.append(v)
                     else:
                         ew_vehicles.append(v)
+
+            # save counts for this specific signal
+            signal_counts[signal["id"]] = {
+                "ns": len(ns_vehicles),
+                "ew": len(ew_vehicles),
+                "state": signal["state"]
+            }
+
             print(
                 f"{signal['id']} -> NS={len(ns_vehicles)} | EW={len(ew_vehicles)} | {signal['state']}",
-                flush=True,
+                flush=True
             )
 
+        # now update the main data packet safely
+        last_data_packet.update({"signals": signal_counts})
         # 🧱 Compute chunk status
         chunk_status = []
         for chunk in route_chunks:
@@ -203,10 +224,6 @@ async def simulation_loop():
                 )
             )
             chunk_status.append("red" if count >= 2 else "green")
-
-        # 🧾 Record and broadcast
-        last_data_packet = record_traffic(signal_position, moving_points)
-        print("Recorded:", last_data_packet, flush=True)
 
         payload = {
             "moving_points": moving_points,
