@@ -140,10 +140,14 @@ export default function LeafletDrawMap() {
             wait_time: data.data.signal_details.wait_time,
           }));
           setSignalIcon(() =>
-               data.data.signal_details.curr_phase=="NS"?redSignalIcon:greenSignalIcon
+            data.data.signal_details.curr_phase == "EW"
+              ? redSignalIcon
+              : greenSignalIcon
           );
-           setSignalIcon2(() =>
-               data.data.signal_details.curr_phase=="EW"?redSignalIcon2:greenSignalIcon2
+          setSignalIcon2(() =>
+            data.data.signal_details.curr_phase == "NS"
+              ? redSignalIcon2
+              : greenSignalIcon2
           );
           // console.log(data.data.signal_details.curr_phase)
         }
@@ -211,9 +215,9 @@ export default function LeafletDrawMap() {
   }, []);
 
   //signal
-  const signalPosition = [28.5708, 77.20897];
+  const signalPosition = [28.5708, 77.2087];
   const [signalIcon, setSignalIcon] = useState(greenSignalIcon);
-  const signalPosition2 = [28.5709, 77.20899999];
+  const signalPosition2 = [28.571, 77.209];
   const [signalIcon2, setSignalIcon2] = useState(greenSignalIcon2);
 
   // useEffect(() => {
