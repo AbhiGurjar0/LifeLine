@@ -107,9 +107,19 @@ def route(start_lat: float, start_lon: float, end_lat: float, end_lon: float):
     return {"route_coords": route_coords, "route_chunks": route_chunks}
 
 
+def distance(a, b):
+    return math.sqrt(((a[0] - b[0]) * 111000) ** 2 + ((a[1] - b[1]) * 111000) ** 2)
+
+
+signals = [
+    {"id": "signal1", "pos": (28.5677, 77.2080), "state": "NS_GREEN"},
+    {"id": "signal2", "pos": (28.5679, 77.2100), "state": "EW_GREEN"},
+]
+
+
 # ---- SIMULATION LOOP ----
 async def simulation_loop():
-    global moving_points, chunk_status, route_chunks,last_data_packet
+    global moving_points, chunk_status, route_chunks, last_data_packet
 
     index_offsets = [i * 20 for i in range(10)]
 
@@ -127,12 +137,44 @@ async def simulation_loop():
     while True:
         # Move vehicles
         for i in range(len(moving_points)):
-            index_offsets[i] = (index_offsets[i] + 1) % len(route_coords)
-            moving_points[i] = route_coords[index_offsets[i]]
+            should_move = True
+            for signal in signals:
+                d = distance(moving_points[i], signal["pos"])
+                if d < 10:  # vehicle near signal (10m)
+                    direction = (
+                        "NS"
+                        if abs(moving_points[i][0] - signal["pos"][0])
+                        < abs(moving_points[i][1] - signal["pos"][1])
+                        else "EW"
+                    )
+                    # Stop if signal is red for this direction
+                    if (direction == "NS" and signal["state"] != "NS_GREEN") or (
+                        direction == "EW" and signal["state"] != "EW_GREEN"
+                    ):
+                        should_move = False
+                        break
 
-        signal_position = [28.5677, 77.2080]
+            if should_move and len(route_coords) > 0:
+                index_offsets[i] = (index_offsets[i] + 1) % len(route_coords)
+                moving_points[i] = route_coords[index_offsets[i]]
 
-        # Compute traffic load per chunk
+        # Count vehicles near each signal
+        for signal in signals:
+            ns_vehicles = []
+            ew_vehicles = []
+            for v in moving_points:
+                d = distance(v, signal["pos"])
+                if d < 15:
+                    if abs(v[0] - signal["pos"][0]) < abs(v[1] - signal["pos"][1]):
+                        ns_vehicles.append(v)
+                    else:
+                        ew_vehicles.append(v)
+
+            print(
+                f"{signal['id']} -> NS={len(ns_vehicles)}  EW={len(ew_vehicles)} | State={signal['state']}"
+            )
+
+        # Compute chunk-based colors if still needed
         chunk_status = []
         for chunk in route_chunks:
             count = sum(
@@ -145,10 +187,8 @@ async def simulation_loop():
             )
             chunk_status.append("red" if count >= 2 else "green")
 
-        # log_timer += 1
-        # if log_timer >= 10 : # roughly every 10 sec 
+        # Record traffic and update last_data_packet
         last_data_packet = record_traffic(signal_position, moving_points)
-            # log_timer = 0
         print("Recorded:", last_data_packet)
 
         # Broadcast every tick (0.5 sec) with latest known data
@@ -158,9 +198,16 @@ async def simulation_loop():
             "route_chunks": route_chunks,
             "data": last_data_packet,  # Always send last recorded
         }
-            # Broadcast shared state
+
+        # Broadcast shared state, remove disconnected clients gracefully
         for ws in list(clients):
-            await ws.send_json(payload)
+            try:
+                await ws.send_json(payload)
+            except Exception:
+                try:
+                    clients.remove(ws)
+                except KeyError:
+                    pass
 
         await asyncio.sleep(0.5)
 
@@ -264,11 +311,8 @@ def record_traffic(signal_position, moving_points):
 # for signal
 
 
-
-
 current_phase = "NS"
 remaining_time = 0
-
 
 
 def update_signal(predicted_A, predicted_B):
@@ -276,17 +320,16 @@ def update_signal(predicted_A, predicted_B):
 
     # --- BASE VALUES ---
     BASE_GREEN = 15
-    MAX_EXTRA = 15       # can extend max +40s for congestion
+    MAX_EXTRA = 15  # can extend max +40s for congestion
     MAX_GREEN = BASE_GREEN + MAX_EXTRA
-    MIN_GREEN = 5       # safety margin, even for low traffic
+    MIN_GREEN = 5  # safety margin, even for low traffic
     SECONDS_PER_VEHICLE = 1.2
-    
 
     def calculate_green_time(vehicle_count):
         base_time = MIN_GREEN + (vehicle_count * SECONDS_PER_VEHICLE)
-    
+
         # Smooth curve for large numbers: saturates slowly
-        adjusted = min(MAX_GREEN, base_time ** 0.9)
+        adjusted = min(MAX_GREEN, base_time**0.9)
         return int(adjusted)
 
     total_density = max(1, predicted_A + predicted_B)  # avoid divide-by-zero
@@ -305,12 +348,12 @@ def update_signal(predicted_A, predicted_B):
     # --- Signal Switching Logic ---
     if remaining_time <= 0:
         # Check fairness before switching normally
-        if update_signal.wait_time["NS"] >=MAX_WAIT:
+        if update_signal.wait_time["NS"] >= MAX_WAIT:
             current_phase = "NS"
             remaining_time = green_NS
             update_signal.wait_time["NS"] = 0
             update_signal.wait_time["EW"] += remaining_time
-        elif update_signal.wait_time["EW"] >=MAX_WAIT:
+        elif update_signal.wait_time["EW"] >= MAX_WAIT:
             current_phase = "EW"
             remaining_time = green_EW
             update_signal.wait_time["EW"] = 0
@@ -336,5 +379,5 @@ def update_signal(predicted_A, predicted_B):
         "remain_time": remaining_time,
         "green_A": green_NS,
         "green_B": green_EW,
-        "wait_time": dict(update_signal.wait_time)
+        "wait_time": dict(update_signal.wait_time),
     }
