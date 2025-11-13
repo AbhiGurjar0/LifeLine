@@ -18,7 +18,7 @@ import os
 import numpy as np
 import math
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "model"))
+sys.path.append(os.path.join(os.path.dirname(__file__), "training"))
 
 # Load model and scaler
 from train_signal_model import TrafficLSTM  # ensure class is importable
