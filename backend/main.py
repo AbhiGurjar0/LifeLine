@@ -102,14 +102,14 @@ def route(start_lat: float, start_lon: float, end_lat: float, end_lon: float):
 
     # initialize 10 vehicles spaced along route
     delay = 20
-    moving_points = [route_coords[(i * delay) % len(route_coords)] for i in range(20)]
+    moving_points = [route_coords[(i * delay) % len(route_coords)] for i in range(40)]
 
     return {"route_coords": route_coords, "route_chunks": route_chunks}
 
 
 signals = [
     {"id": "signal1", "pos": (28.5708, 77.2087), "state": "NS_GREEN"},
-    {"id": "signal2", "pos": (28.5710, 77.2090), "state": "EW_GREEN"},
+    {"id": "signal2", "pos": (28.5708, 77.2084), "state": "EW_GREEN"},
 ]
 
 
@@ -117,7 +117,7 @@ signals = [
 async def simulation_loop():
     global moving_points, chunk_status, route_chunks, last_data_packet
 
-    index_offsets = [i * 20 for i in range(20)]
+    index_offsets = [i * 2 for i in range(40)]
     chunk_status = []
     log_timer = 0
     tick_counter = 0
@@ -158,7 +158,7 @@ async def simulation_loop():
             should_move = True
             for signal in signals:
                 d = distance(moving_points[i], signal["pos"])
-                if d < 25:
+                if d < 45:
                     direction = (
                         "NS"
                         if abs(moving_points[i][0] - signal["pos"][0])
@@ -175,7 +175,7 @@ async def simulation_loop():
                         should_move = False
 
             if should_move:
-                if tick_counter % 3 == 0:
+                # if tick_counter % 3 == 0:
                     index_offsets[i] = (index_offsets[i] + 1) % len(route_coords)
                     moving_points[i] = route_coords[index_offsets[i]]
 
@@ -192,7 +192,7 @@ async def simulation_loop():
 
             for v in moving_points:
                 d = distance(v, signal["pos"])
-                if d < 25:
+                if d < 45:
                     if abs(v[0] - signal["pos"][0]) < abs(v[1] - signal["pos"][1]):
                         ns_vehicles.append(v)
                     else:
@@ -241,7 +241,7 @@ async def simulation_loop():
                 except KeyError:
                     pass
 
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(1)
 
 
 @app.on_event("startup")
@@ -351,10 +351,10 @@ def update_signal(predicted_A, predicted_B):
     global current_phase, remaining_time
 
     # --- BASE VALUES ---
-    BASE_GREEN = 15
-    MAX_EXTRA = 15  # can extend max +40s for congestion
+    BASE_GREEN = 20
+    MAX_EXTRA = 10  # can extend max +40s for congestion
     MAX_GREEN = BASE_GREEN + MAX_EXTRA
-    MIN_GREEN = 5  # safety margin, even for low traffic
+    MIN_GREEN = 15  # safety margin, even for low traffic
     SECONDS_PER_VEHICLE = 1.2
 
     def calculate_green_time(vehicle_count):

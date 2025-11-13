@@ -120,10 +120,9 @@ export default function LeafletDrawMap() {
             EW: data.data.signal_details.green_B,
             phase: data.data.signal_details.curr_phase,
             wait_time: data.data.signal_details.wait_time,
-            curr_NS:data.data.signals.signal2.ns,
-            curr_EW:data.data.signals.signal2.ew,
-            curr_state:data.data.signals.signal2.state,
-
+            curr_NS: data.data.signals.signal2.ns,
+            curr_EW: data.data.signals.signal2.ew,
+            curr_state: data.data.signals.signal2.state,
           }));
           setSignalIcon(() =>
             data.data.signal_details.curr_phase == "EW"
@@ -135,7 +134,6 @@ export default function LeafletDrawMap() {
               ? redSignalIcon2
               : greenSignalIcon2
           );
-        
         }
 
         // DON'T update routeChunks here - it's already set from /route
@@ -201,7 +199,7 @@ export default function LeafletDrawMap() {
   }, []);
 
   //signal
-  const signalPosition = [28.5708, 77.2087];
+  const signalPosition = [28.5708, 77.2084];
   const [signalIcon, setSignalIcon] = useState(greenSignalIcon);
   const signalPosition2 = [28.571, 77.209];
   const [signalIcon2, setSignalIcon2] = useState(greenSignalIcon2);
@@ -222,152 +220,239 @@ export default function LeafletDrawMap() {
 
   return (
     <>
-      <div>
-        <header className="z-[9999] flex sticky top-0 left-0 shrink-0 items-center justify-between border-b border-white/10 bg-background-light px-6 py-3 font-display text-black bg-gray-100 ">
-          <div className="flex items-center gap-4 ">
-            <span className="material-symbols-outlined  text-2xl">traffic</span>
-            <h2 className=" text-lg font-bold leading-tight tracking-[-0.015em]">
-              City Traffic Command
-            </h2>
+     <div>
+  <header className="z-[9999] flex sticky top-0 left-0 shrink-0 items-center justify-between border-b border-white/10 bg-background-light px-6 py-3 font-display text-black bg-gray-100 backdrop-blur-sm bg-opacity-95">
+    <div className="flex items-center gap-4">
+      <motion.span 
+        className="material-symbols-outlined text-2xl"
+        whileHover={{ scale: 1.1, rotate: 15 }}
+        transition={{ type: "spring", stiffness: 300 }}
+      >
+        traffic
+      </motion.span>
+      <motion.h2 
+        className="text-lg font-bold leading-tight tracking-[-0.015em]"
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.5 }}
+      >
+        City Traffic Command
+      </motion.h2>
+    </div>
+    <div className="flex flex-1 justify-end gap-4">
+      <motion.label 
+        className="flex flex-col h-10 w-full max-w-sm"
+        whileFocus={{ scale: 1.02 }}
+      >
+        <div className="flex w-full flex-1 items-stretch rounded-lg h-full backdrop-blur-sm bg-zinc-200/90">
+          <div className="text-gray-400 flex border-none bg-zinc-200 items-center justify-center pl-3 rounded-l-lg border-r-0">
+            <span className="material-symbols-outlined">search</span>
           </div>
-          <div className="flex flex-1 justify-end gap-4">
-            <label className="flex flex-col h-10 w-full max-w-sm">
-              <div className="flex w-full flex-1 items-stretch rounded-lg h-full">
-                <div className="text-gray-400 flex border-none bg-zinc-200 items-center justify-center pl-3 rounded-l-lg border-r-0">
-                  <span className="material-symbols-outlined">search</span>
-                </div>
-                <input
-                  className="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-black focus:outline-0 focus:ring-0 border-none bg-zinc-200 focus:border-none h-full placeholder:text-gray-400 px-4 rounded-l-none border-l-0 pl-2 text-base font-normal leading-normal"
-                  placeholder="Search for intersections or addresses"
-                />
-              </div>
-            </label>
-            <div className="flex gap-2">
-              <button className="flex max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-10 bg-white text-black gap-2 text-sm font-bold leading-normal tracking-[0.015em] min-w-0 px-2.5">
-                <span className="material-symbols-outlined">notifications</span>
-              </button>
-              <button className="flex max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-10 bg-white text-black gap-2 text-sm font-bold leading-normal tracking-[0.015em] min-w-0 px-2.5">
-                <span className="material-symbols-outlined">settings</span>
-              </button>
-            </div>
-            <div
-              className="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10"
-              data-alt="User profile picture"
-              style={{
-                backgroundImage: `url(
-                  "https://lh3.googleusercontent.com/aida-public/AB6AXuCNFkrQLsbAuoBZp2vi7tFNSaueqiG4isoudsHNGXy4OCOSVqqF6WQp_fjau7-5fxyFFIbgul31lBwnqvVmov1kcdsPFTrWGOi83s9amJwNejH6WAc1IUtDAfQCC0ZD9Jl8gt3cRR9b1YVdqvepCjA0dvBd7iPiE6u6X29bGrKHrBZpP0URk-1LPlBKKdqNYnVgdtGieIAHFOT96TB2irlxiakiQ96l8NmVYtaeudyaljKN32fCR0qrmLk0URhz7iOInE7llB8AaJk"
-                )`,
-              }}
-            ></div>
-          </div>
-        </header>
-        <div className="w-full h-screen flex">
-          <div className="w-[20vw] h-screen fixed">
-            <Sidebar />
-          </div>
-          <div className="w-[80vw] h-[80vh] ml-[20vw] mt-[2vh]">
-            <MapContainer
-              center={[28.6139, 77.209]}
-              zoom={11}
-              style={{ height: "100vh" }}
-            >
-              <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-              {coords.length > 0 && <Polyline positions={coords} />}
-              {coords2.length > 0 && <Polyline positions={coords2} />}
-              {isAdmin &&
-                movingPoints.map((pos, i) => (
-                  <Marker key={i} position={pos} icon={carIcon} />
-                ))}
-              {routeChunks &&
-                chunkStatus &&
-                routeChunks.map((chunk, i) => (
-                  <Polyline
-                    key={i}
-                    positions={chunk}
-                    pathOptions={{ color: chunkStatus[i], weight: 6 }}
-                  />
-                ))}
-              {routeChunks2 &&
-                chunkStatus2 &&
-                routeChunks2.map((chunk, i) => (
-                  <Polyline
-                    key={i}
-                    positions={chunk}
-                    pathOptions={{ color: chunkStatus2[i], weight: 6 }}
-                  />
-                ))}
-
-              <Marker position={signalPosition} icon={signalIcon} />
-              <Marker position={signalPosition2} icon={signalIcon2} />
-            </MapContainer>
-          </div>
-          <div className="w-1/3 bg-gray-900 p-4 overflow-y-auto h-screen text-white border-l border-gray-800">
-            <h2 className="text-2xl font-semibold mb-4 text-center text-blue-400">
-              🚦 Live Signal Dashboard
-            </h2>
-
-            {signals && (
-              <motion.div
-                key={signals.id}
-                whileHover={{ scale: 1.02 }}
-                className="mb-4"
-              >
-                <Card className="bg-gray-800 shadow-lg border border-gray-700">
-                  <CardContent className="p-4">
-                    <div className="flex justify-between items-center">
-                      <h3 className="font-semibold text-lg">{signals.name}</h3>
-                      <span
-                        className={`px-3 py-1 rounded-full text-xs ${getPhaseColor(
-                          signals.phase
-                        )}`}
-                      >
-                        {signals.phase === "NS" ? "North-South" : "East-West"}
-                      </span>
-                    </div>
-
-                    <div className="mt-3 text-sm">
-                      <p>
-                        ⏱️ Remaining Time:{" "}
-                        <span className="text-blue-400 font-bold">
-                          {signals.remaining}s
-                        </span>
-                      </p>
-                      <p>
-                        🚗 Predicted Vehicles: NS={signals.NS} | EW={signals.EW}
-                      </p>
-                      <p>
-                        🚗 Current Vehicles: NS={signals.curr_NS} | EW={signals.curr_EW} | curr_state = {signals.curr_state}
-                      </p>
-                      <p>current_phase = {signals.phase}</p>
-                      <p>
-                        Wait Time(NS) ={signals.wait_time.NS} | Wait Time(EW) =
-                        {signals.wait_time.EW}
-                      </p>
-                      <div className="flex items-center mt-2">
-                        <span>Congestion:</span>
-                        <Progress
-                          className="ml-2 w-full bg-gray-700"
-                          value={Math.min((signals.NS + signals.EW) * 3, 100)}
-                        />
-                      </div>
-                      <p className="mt-2">
-                        🧠 Prediction:{" "}
-                        <span
-                          className={`font-semibold ${getPredictionColor(
-                            signals.prediction
-                          )}`}
-                        >
-                          {signals.prediction}
-                        </span>
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            )}
-          </div>
+          <input
+            className="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-black focus:outline-0 focus:ring-0 border-none bg-zinc-200 focus:border-none h-full placeholder:text-gray-400 px-4 rounded-l-none border-l-0 pl-2 text-base font-normal leading-normal focus:bg-white transition-colors duration-200"
+            placeholder="Search for intersections or addresses"
+          />
         </div>
+      </motion.label>
+      <div className="flex gap-2">
+        <motion.button 
+          className="flex max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-10 bg-white text-black gap-2 text-sm font-bold leading-normal tracking-[0.015em] min-w-0 px-2.5 hover:shadow-lg transition-all duration-200"
+          whileHover={{ scale: 1.05, y: -2 }}
+          whileTap={{ scale: 0.95 }}
+        >
+          <motion.span 
+            className="material-symbols-outlined"
+            animate={{ 
+              scale: [1, 1.2, 1],
+            }}
+            transition={{ 
+              duration: 2,
+              repeat: Infinity,
+              repeatType: "reverse"
+            }}
+          >
+            notifications
+          </motion.span>
+        </motion.button>
+        <motion.button 
+          className="flex max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-10 bg-white text-black gap-2 text-sm font-bold leading-normal tracking-[0.015em] min-w-0 px-2.5 hover:shadow-lg transition-all duration-200"
+          whileHover={{ scale: 1.05, y: -2 }}
+          whileTap={{ scale: 0.95 }}
+        >
+          <span className="material-symbols-outlined">settings</span>
+        </motion.button>
       </div>
+      <motion.div
+        className="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10 cursor-pointer border-2 border-transparent hover:border-blue-500 transition-all duration-300"
+        data-alt="User profile picture"
+        style={{
+          backgroundImage: `url(
+            "https://lh3.googleusercontent.com/aida-public/AB6AXuCNFkrQLsbAuoBZp2vi7tFNSaueqiG4isoudsHNGXy4OCOSVqqF6WQp_fjau7-5fxyFFIbgul31lBwnqvVmov1kcdsPFTrWGOi83s9amJwNejH6WAc1IUtDAfQCC0ZD9Jl8gt3cRR9b1YVdqvepCjA0dvBd7iPiE6u6X29bGrKHrBZpP0URk-1LPlBKKdqNYnVgdtGieIAHFOT96TB2irlxiakiQ96l8NmVYtaeudyaljKN32fCR0qrmLk0URhz7iOInE7llB8AaJk"
+          )`,
+        }}
+        whileHover={{ scale: 1.1, rotate: 5 }}
+        whileTap={{ scale: 0.9 }}
+      />
+    </div>
+  </header>
+  <div className="w-full h-screen flex">
+    <div className="w-[20vw] h-screen fixed">
+      <Sidebar />
+    </div>
+    <div className="w-[80vw] h-[80vh] ml-[20vw] mt-[2vh]">
+      <MapContainer
+        center={[28.6139, 77.209]}
+        zoom={11}
+        style={{ height: "100vh" }}
+      >
+        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+        {coords.length > 0 && <Polyline positions={coords} />}
+        {coords2.length > 0 && <Polyline positions={coords2} />}
+        {isAdmin &&
+          movingPoints.map((pos, i) => (
+            <Marker key={i} position={pos} icon={carIcon} />
+          ))}
+        {routeChunks &&
+          chunkStatus &&
+          routeChunks.map((chunk, i) => (
+            <Polyline
+              key={i}
+              positions={chunk}
+              pathOptions={{ color: chunkStatus[i], weight: 6 }}
+            />
+          ))}
+        {routeChunks2 &&
+          chunkStatus2 &&
+          routeChunks2.map((chunk, i) => (
+            <Polyline
+              key={i}
+              positions={chunk}
+              pathOptions={{ color: chunkStatus2[i], weight: 6 }}
+            />
+          ))}
+
+        <Marker position={signalPosition} icon={signalIcon} />
+        <Marker position={signalPosition2} icon={signalIcon2} />
+      </MapContainer>
+    </div>
+    <motion.div 
+      className="w-1/3 bg-gray-900 p-4 overflow-y-auto h-screen text-white border-l border-gray-800 backdrop-blur-sm bg-opacity-95"
+      initial={{ x: 100, opacity: 0 }}
+      animate={{ x: 0, opacity: 1 }}
+      transition={{ duration: 0.5 }}
+    >
+      <motion.h2 
+        className="text-2xl font-semibold mb-4 text-center text-blue-400"
+        animate={{ 
+          textShadow: [
+            "0 0 8px rgba(59, 130, 246, 0.5)",
+            "0 0 15px rgba(59, 130, 246, 0.8)",
+            "0 0 8px rgba(59, 130, 246, 0.5)"
+          ]
+        }}
+        transition={{ duration: 2, repeat: Infinity }}
+      >
+        🚦 Live Signal Dashboard
+      </motion.h2>
+
+      {signals && (
+        <motion.div
+          key={signals.id}
+          whileHover={{ scale: 1.02, y: -5 }}
+          whileTap={{ scale: 0.98 }}
+          className="mb-4 cursor-pointer"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          <Card className="bg-gray-800 shadow-lg border border-gray-700 hover:shadow-2xl hover:border-blue-500/50 transition-all duration-300">
+            <CardContent className="p-4">
+              <div className="flex justify-between items-center">
+                <motion.h3 
+                  className="font-semibold text-lg"
+                  whileHover={{ color: "#60a5fa" }}
+                >
+                  {signals.name}
+                </motion.h3>
+                <motion.span
+                  className={`px-3 py-1 rounded-full text-xs font-medium ${getPhaseColor(
+                    signals.phase
+                  )}`}
+                  whileHover={{ scale: 1.1 }}
+                  animate={{
+                    boxShadow: [
+                      "0 0 0px rgba(59, 130, 246, 0)",
+                      "0 0 10px currentColor",
+                      "0 0 0px rgba(59, 130, 246, 0)"
+                    ]
+                  }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                >
+                  {signals.phase === "NS" ? "North-South" : "East-West"}
+                </motion.span>
+              </div>
+
+              <div className="mt-3 text-sm space-y-2">
+                <motion.p 
+                  className="flex items-center gap-2"
+                  whileHover={{ x: 5 }}
+                >
+                  ⏱️ Remaining Time:{" "}
+                  <span className="text-blue-400 font-bold">
+                    {signals.remaining}s
+                  </span>
+                </motion.p>
+                <motion.p 
+                  className="flex items-center gap-2"
+                  whileHover={{ x: 5 }}
+                >
+                  🚗 Predicted Vehicles: NS={signals.NS} | EW={signals.EW}
+                </motion.p>
+                <motion.p 
+                  className="flex items-center gap-2"
+                  whileHover={{ x: 5 }}
+                >
+                  🚗 Current Vehicles: NS={signals.curr_NS} | EW={signals.curr_EW} | curr_state = {signals.curr_state}
+                </motion.p>
+                <p>current_phase = {signals.phase}</p>
+                <motion.p 
+                  className="flex items-center gap-2"
+                  whileHover={{ x: 5 }}
+                >
+                  Wait Time(NS) ={signals.wait_time.NS} | Wait Time(EW) =
+                  {signals.wait_time.EW}
+                </motion.p>
+                <motion.div 
+                  className="flex items-center mt-2"
+                  whileHover={{ scale: 1.02 }}
+                >
+                  <span>Congestion:</span>
+                  <Progress
+                    className="ml-2 w-full bg-gray-700"
+                    value={Math.min((signals.NS + signals.EW) * 3, 100)}
+                  />
+                </motion.div>
+                <motion.p 
+                  className="mt-2 flex items-center gap-2"
+                  whileHover={{ x: 5 }}
+                >
+                  🧠 Prediction:{" "}
+                  <span
+                    className={`font-semibold ${getPredictionColor(
+                      signals.prediction
+                    )}`}
+                  >
+                    {signals.prediction}
+                  </span>
+                </motion.p>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
+    </motion.div>
+  </div>
+</div>
     </>
   );
 }
