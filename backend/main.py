@@ -18,6 +18,42 @@ import os
 import numpy as np
 import math
 
+
+
+app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+load_dotenv()
+TOMTOM_KEY = os.getenv("TOMTOM_KEY")
+
+
+# ---- GLOBAL SHARED STATE ----
+moving_points = []  # 10 vehicles
+route_coords = []  # full path
+route_chunks = []
+chunk_status = []
+
+signal_position = [28.5677, 77.2080]
+last_data_packet = {}
+
+clients = set()
+
+DATA_FILE = "traffic_history.csv"
+
+# create file with headers if not exists
+if not os.path.exists(DATA_FILE):
+    with open(DATA_FILE, "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["timestamp", "hour", "weekday", "NS_density", "EW_density"])
+
+
 sys.path.append(os.path.join(os.path.dirname(__file__), "training"))
 
 # Load model and scaler
@@ -45,41 +81,12 @@ def predict_next_density(current_NS, current_EW):
     return int(max(0, inv[0])), int(max(0, inv[1]))
 
 
-DATA_FILE = "traffic_history.csv"
-
-# create file with headers if not exists
-if not os.path.exists(DATA_FILE):
-    with open(DATA_FILE, "w", newline="") as f:
-        writer = csv.writer(f)
-        writer.writerow(["timestamp", "hour", "weekday", "NS_density", "EW_density"])
-
-
-load_dotenv()
-TOMTOM_KEY = os.getenv("TOMTOM_KEY")
-
-app = FastAPI()
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# ---- GLOBAL SHARED STATE ----
-moving_points = []  # 10 vehicles
-route_coords = []  # full path
-route_chunks = []
-chunk_status = []
-
-signal_position = [28.5677, 77.2080]
-last_data_packet = {}
-
-clients = set()
-
-
 # ---- FETCH ROUTE ----
+
+
+
+
+
 @app.get("/route")
 def route(start_lat: float, start_lon: float, end_lat: float, end_lon: float):
     global route_coords, moving_points, route_chunks
@@ -151,7 +158,7 @@ async def simulation_loop():
                 ((a[0] - b[0]) * 111000) ** 2 + ((a[1] - b[1]) * 111000) ** 2
             )
             return ans
-        
+
         tick_counter += 1
         # 🚗 Move vehicles
         for i in range(len(moving_points)):
@@ -176,8 +183,8 @@ async def simulation_loop():
 
             if should_move:
                 # if tick_counter % 3 == 0:
-                    index_offsets[i] = (index_offsets[i] + 1) % len(route_coords)
-                    moving_points[i] = route_coords[index_offsets[i]]
+                index_offsets[i] = (index_offsets[i] + 1) % len(route_coords)
+                moving_points[i] = route_coords[index_offsets[i]]
 
         # 🧾 Record and broadcast
         last_data_packet = record_traffic(signals[0]["pos"], moving_points)
@@ -202,12 +209,12 @@ async def simulation_loop():
             signal_counts[signal["id"]] = {
                 "ns": len(ns_vehicles),
                 "ew": len(ew_vehicles),
-                "state": signal["state"]
+                "state": signal["state"],
             }
 
             print(
                 f"{signal['id']} -> NS={len(ns_vehicles)} | EW={len(ew_vehicles)} | {signal['state']}",
-                flush=True
+                flush=True,
             )
 
         # now update the main data packet safely
