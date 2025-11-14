@@ -17,8 +17,15 @@ import sys
 import os
 import numpy as np
 import math
-from controllers.signal_controller import router as traffic_router
+from controllers.signal_controller import (
+    get_traffic_signal,
+    router as traffic_router,
+    get_traffic_signals,
+    update_traffic_signal,
+)
 from controllers.login_controller import router as login_router
+
+# from database.models import TrafficSignal, User
 
 
 app = FastAPI()
@@ -50,7 +57,7 @@ chunk_status = []
 
 signal_position = [28.5677, 77.2080]
 last_data_packet = {}
-
+routes = []  # list of route dicts
 
 clients = set()
 
@@ -95,7 +102,8 @@ def predict_next_density(current_NS, current_EW):
 
 @app.get("/route")
 def route(start_lat: float, start_lon: float, end_lat: float, end_lon: float):
-    global route_coords, moving_points, route_chunks
+    # global route_coords, moving_points, route_chunks
+    global routes
 
     url = (
         f"https://api.tomtom.com/routing/1/calculateRoute/"
@@ -116,19 +124,39 @@ def route(start_lat: float, start_lon: float, end_lat: float, end_lon: float):
     # initialize 10 vehicles spaced along route
     delay = 20
     moving_points = [route_coords[(i * delay) % len(route_coords)] for i in range(40)]
+    routes.append(
+        {
+            "route_coords": route_coords,
+            "route_chunks": route_chunks,
+            "moving_points": moving_points,
+        }
+    )
 
-    return {"route_coords": route_coords, "route_chunks": route_chunks}
+    return {"routes": routes}
+
+
+def load_signals():
+    global signals
+    # load from DB in future
 
 
 signals = [
-    {"id": "signal1", "pos": (28.5708, 77.2087), "state": "NS_GREEN"},
-    {"id": "signal2", "pos": (28.5708, 77.2084), "state": "EW_GREEN"},
+    # {"id": "signal1", "pos": (28.5708, 77.2087), "state": "NS_GREEN"},
+    # {"id": "signal2", "pos": (28.5708, 77.2084), "state": "EW_GREEN"},
 ]
+
+
+def distance(a, b):
+    ans = math.sqrt(((a[0] - b[0]) * 111000) ** 2 + ((a[1] - b[1]) * 111000) ** 2)
+    return ans
 
 
 #  SIMULATION LOOP
 async def simulation_loop():
-    global moving_points, chunk_status, route_chunks, last_data_packet
+    # global moving_points, chunk_status, route_chunks, last_data_packet
+    global routes
+    data = await get_traffic_signals()
+    signals = data.get("signals", [])
 
     index_offsets = [i * 2 for i in range(40)]
     chunk_status = []
@@ -137,113 +165,107 @@ async def simulation_loop():
 
     while True:
         #  Wait until the route and signals are ready
-        if not route_coords or not moving_points:
-            print("⏳ Waiting for route initialization...", flush=True)
-            await asyncio.sleep(1)
-            continue
+        # if not routes.get("route_coords") or not moving_points:
+        #     print("⏳ Waiting for route initialization...", flush=True)
+        #     await asyncio.sleep(1)
+        #     continue
 
-        if not signals:
-            print("⚠️ No signals defined yet. Waiting...", flush=True)
-            await asyncio.sleep(1)
-            continue
+        # if not signals:
+        #     print("⚠️ No signals defined yet. Waiting...", flush=True)
+        #     await asyncio.sleep(1)
+        #     continue
 
-        print(
-            f"✅ Running simulation | Vehicles={len(moving_points)} | Signals={len(signals)}",
-            flush=True,
-        )
+        # print(
+        #     f"✅ Running simulation | Vehicles={len(moving_points)} | Signals={len(signals)}",
+        #     flush=True,
+        # )
+        signal_Index = 0
+        for route in routes:
+            moving_points = route.get("moving_points", [])
+            route_coords = route.get("route_coords", [])
+            route_chunks = route.get("route_chunks", [])
 
-        # Ensure route_chunks are valid (in case route just got updated)
-        chunk_size = 20
-        route_chunks = [
-            route_coords[i : i + chunk_size]
-            for i in range(0, len(route_coords), chunk_size)
-        ]
+            tick_counter += 1
+            # Move vehicles
+            for i in range(len(moving_points)):
+                should_move = True
+                for signal in signals:
+                    d = distance(moving_points[i], signal["location"])
+                    if d < 45:
+                        direction = (
+                            "NS"
+                            if abs(moving_points[i][0] - signal["location"][0])
+                            < abs(moving_points[i][1] - signal["location"][1])
+                            else "EW"
+                        )
+                        curr_phase = last_data_packet.get("signal_details", {}).get(
+                            "curr_phase"
+                        )
+                        if (direction == "NS" and curr_phase != "NS") or (
+                            direction == "EW" and curr_phase != "EW"
+                        ):
+                            print("Stopped")
+                            should_move = False
 
-        def distance(a, b):
-            ans = math.sqrt(
-                ((a[0] - b[0]) * 111000) ** 2 + ((a[1] - b[1]) * 111000) ** 2
-            )
-            return ans
+                if should_move:
+                    # if tick_counter % 3 == 0:
+                    index_offsets[i] = (index_offsets[i] + 1) % len(route_coords)
+                    moving_points[i] = route_coords[index_offsets[i]]
 
-        tick_counter += 1
-        # Move vehicles
-        for i in range(len(moving_points)):
-            should_move = True
+            #  Record and broadcast
+            for i in range(len(signals)):
+                last_data_packet = await record_traffic(i + 1, moving_points)
+                print("Recorded:", last_data_packet, flush=True)
+            #  Count vehicles per signal
+            signal_counts = {}  # store per signal ID
+
             for signal in signals:
-                d = distance(moving_points[i], signal["pos"])
-                if d < 45:
-                    direction = (
-                        "NS"
-                        if abs(moving_points[i][0] - signal["pos"][0])
-                        < abs(moving_points[i][1] - signal["pos"][1])
-                        else "EW"
-                    )
-                    curr_phase = last_data_packet.get("signal_details", {}).get(
-                        "curr_phase"
-                    )
-                    if (direction == "NS" and curr_phase != "NS") or (
-                        direction == "EW" and curr_phase != "EW"
-                    ):
-                        print("Stopped")
-                        should_move = False
+                ns_vehicles = []
+                ew_vehicles = []
 
-            if should_move:
-                # if tick_counter % 3 == 0:
-                index_offsets[i] = (index_offsets[i] + 1) % len(route_coords)
-                moving_points[i] = route_coords[index_offsets[i]]
+                for v in moving_points:
+                    d = distance(v, signal["location"])
+                    if d < 45:
+                        if abs(v[0] - signal["location"][0]) < abs(
+                            v[1] - signal["location"][1]
+                        ):
+                            ns_vehicles.append(v)
+                        else:
+                            ew_vehicles.append(v)
 
-        #  Record and broadcast
-        last_data_packet = record_traffic(signals[0]["pos"], moving_points)
-        print("Recorded:", last_data_packet, flush=True)
+                # save counts for this specific signal
+                signal_counts[signal["id"]] = {
+                    "ns": len(ns_vehicles),
+                    "ew": len(ew_vehicles),
+                    "state": signal["status"],
+                }
 
-        #  Count vehicles per signal
-        signal_counts = {}  # store per signal ID
-
-        for signal in signals:
-            ns_vehicles = []
-            ew_vehicles = []
-
-            for v in moving_points:
-                d = distance(v, signal["pos"])
-                if d < 45:
-                    if abs(v[0] - signal["pos"][0]) < abs(v[1] - signal["pos"][1]):
-                        ns_vehicles.append(v)
-                    else:
-                        ew_vehicles.append(v)
-
-            # save counts for this specific signal
-            signal_counts[signal["id"]] = {
-                "ns": len(ns_vehicles),
-                "ew": len(ew_vehicles),
-                "state": signal["state"],
-            }
-
-            print(
-                f"{signal['id']} -> NS={len(ns_vehicles)} | EW={len(ew_vehicles)} | {signal['state']}",
-                flush=True,
-            )
-
-        # now update the main data packet safely
-        last_data_packet.update({"signals": signal_counts})
-        #  Compute chunk status
-        chunk_status = []
-        for chunk in route_chunks:
-            count = sum(
-                1
-                for v in moving_points
-                if any(
-                    abs(v[0] - p[0]) < 0.0005 and abs(v[1] - p[1]) < 0.0005
-                    for p in chunk
+                print(
+                    f"{signal['id']} -> NS={len(ns_vehicles)} | EW={len(ew_vehicles)} | {signal['status']}",
+                    flush=True,
                 )
-            )
-            chunk_status.append("red" if count >= 2 else "green")
 
-        payload = {
-            "moving_points": moving_points,
-            "chunk_status": chunk_status,
-            "route_chunks": route_chunks,
-            "data": last_data_packet,
-        }
+            # now update the main data packet safely
+            last_data_packet.update({"signals": signal_counts})
+            #  Compute chunk status
+            chunk_status = []
+            for chunk in route_chunks:
+                count = sum(
+                    1
+                    for v in moving_points
+                    if any(
+                        abs(v[0] - p[0]) < 0.0005 and abs(v[1] - p[1]) < 0.0005
+                        for p in chunk
+                    )
+                )
+                chunk_status.append("red" if count >= 2 else "green")
+
+            payload = {
+                "moving_points": moving_points,
+                "chunk_status": chunk_status,
+                "route_chunks": route_chunks,
+                # "data": last_data_packet,
+            }
 
         for ws in list(clients):
             try:
@@ -306,11 +328,15 @@ def get_direction(signal_pos, vehicle_pos):
         return "S"  # South
 
 
-def record_traffic(signal_position, moving_points):
-    # count vehicles near signal
+async def record_traffic(signal_number, moving_points):
 
+    # signal position
+    signal_details = (await get_traffic_signal(signal_number))["signal"]
+    print(signal_details[0])
+    signal_position = signal_details[0]["location"]
+
+    # count vehicles near signal per direction
     directions = {"N": 0, "S": 0, "E": 0, "W": 0}
-
     for p in moving_points:
         # Check if vehicle is near the signal (radius check)
         if (
@@ -332,7 +358,28 @@ def record_traffic(signal_position, moving_points):
     EW_density = density_E + density_W
     [predicted_NS, predicted_EW] = predict_next_density(NS_density, EW_density)
     print(predicted_NS, predicted_EW)
-    signal_details = update_signal(predicted_NS, predicted_EW)
+    signal_details =  update_signal(predicted_NS, predicted_EW)
+
+    # update signal in DB
+    await update_traffic_signal(
+        signal_number,
+        {
+            "status": [
+                "{signal_details['curr_phase']}_GREEN",
+                f"{'EW' if signal_details['curr_phase']=='NS' else 'NS'}_RED",
+            ],
+            "signal_Time": (
+                signal_details["green_A"]
+                if signal_details["curr_phase"] == "NS"
+                else signal_details["green_B"]
+            ),
+            "waiting_Time": (
+                signal_details["wait_time"]["EW"]
+                if signal_details["curr_phase"] == "NS"
+                else signal_details["wait_time"]["NS"]
+            ),
+        },
+    )
 
     now = datetime.now()
     row = [

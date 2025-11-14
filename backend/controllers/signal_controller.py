@@ -14,6 +14,13 @@ async def get_traffic_signals():
     return {"signals": signals}
 
 
+@router.get("/signal/{signal_number}")
+async def get_traffic_signal(signal_number: int):
+    data = collection.find_one({"signal_Number": signal_number})
+    signal = all_traffic_signals_data([data]) if data else None
+    return {"signal": signal}
+
+
 @router.post("/add_signal")
 async def add_traffic_signal(new_signal: TrafficSignal):
     is_Exist = collection.find_one({"location": new_signal.location})
@@ -23,13 +30,12 @@ async def add_traffic_signal(new_signal: TrafficSignal):
     return {"message": "Traffic signal added successfully"}
 
 
-@router.put("/update_signal/{signal_id}")
-async def update_traffic_signal(signal_id: str, updated_signal: TrafficSignal):
-    signal_id = ObjectId(signal_id)
-    is_Exist = collection.find_one({"_id": signal_id})
+@router.put("/update_signal/{signal_Number}")
+async def update_traffic_signal(signal_Number: int, updated_signal: TrafficSignal):
+    is_Exist = collection.find_one({"signal_Number": signal_Number})
     if not is_Exist:
         return {"message": "Traffic signal not found"}
-    collection.update_one({"_id": signal_id}, {"$set": dict(updated_signal)})
+    collection.update_one({"signal_Number": signal_Number}, {"$set": dict(updated_signal)})
     return {"message": "Traffic signal updated successfully"}
 
 
