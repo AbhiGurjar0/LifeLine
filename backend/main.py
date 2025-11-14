@@ -17,10 +17,14 @@ import sys
 import os
 import numpy as np
 import math
-
+from controllers.signal_controller import router as traffic_router
+from controllers.login_controller import router as login_router
 
 
 app = FastAPI()
+
+
+## middlewares
 
 app.add_middleware(
     CORSMiddleware,
@@ -30,11 +34,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(traffic_router, prefix="/traffic")
+app.include_router(login_router, prefix="/admin")
+
+## env
 load_dotenv()
 TOMTOM_KEY = os.getenv("TOMTOM_KEY")
 
 
-# ---- GLOBAL SHARED STATE ----
+#  GLOBAL SHARED STATE
 moving_points = []  # 10 vehicles
 route_coords = []  # full path
 route_chunks = []
@@ -42,6 +50,7 @@ chunk_status = []
 
 signal_position = [28.5677, 77.2080]
 last_data_packet = {}
+
 
 clients = set()
 
@@ -81,10 +90,7 @@ def predict_next_density(current_NS, current_EW):
     return int(max(0, inv[0])), int(max(0, inv[1]))
 
 
-# ---- FETCH ROUTE ----
-
-
-
+#  FETCH ROUTE
 
 
 @app.get("/route")
@@ -120,7 +126,7 @@ signals = [
 ]
 
 
-# ---- SIMULATION LOOP ----
+#  SIMULATION LOOP
 async def simulation_loop():
     global moving_points, chunk_status, route_chunks, last_data_packet
 
@@ -130,7 +136,7 @@ async def simulation_loop():
     tick_counter = 0
 
     while True:
-        # 💤 Wait until the route and signals are ready
+        #  Wait until the route and signals are ready
         if not route_coords or not moving_points:
             print("⏳ Waiting for route initialization...", flush=True)
             await asyncio.sleep(1)
@@ -160,7 +166,7 @@ async def simulation_loop():
             return ans
 
         tick_counter += 1
-        # 🚗 Move vehicles
+        # Move vehicles
         for i in range(len(moving_points)):
             should_move = True
             for signal in signals:
@@ -186,11 +192,11 @@ async def simulation_loop():
                 index_offsets[i] = (index_offsets[i] + 1) % len(route_coords)
                 moving_points[i] = route_coords[index_offsets[i]]
 
-        # 🧾 Record and broadcast
+        #  Record and broadcast
         last_data_packet = record_traffic(signals[0]["pos"], moving_points)
         print("Recorded:", last_data_packet, flush=True)
 
-        # 🧮 Count vehicles per signal
+        #  Count vehicles per signal
         signal_counts = {}  # store per signal ID
 
         for signal in signals:
@@ -219,7 +225,7 @@ async def simulation_loop():
 
         # now update the main data packet safely
         last_data_packet.update({"signals": signal_counts})
-        # 🧱 Compute chunk status
+        #  Compute chunk status
         chunk_status = []
         for chunk in route_chunks:
             count = sum(
