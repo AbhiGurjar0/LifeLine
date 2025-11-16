@@ -14,9 +14,9 @@ async def get_traffic_signals():
     return {"signals": signals}
 
 
-@router.get("/signal/{signal_number}")
-async def get_traffic_signal(signal_number: int):
-    data = collection.find_one({"signal_Number": signal_number})
+@router.get("/signal/{signal_num}")
+async def get_traffic_signal(signal_num: int):
+    data = collection.find_one({"signal_Number": signal_num})
     signal = all_traffic_signals_data([data]) if data else None
     return {"signal": signal}
 

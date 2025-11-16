@@ -109,7 +109,7 @@ export default function LeafletDrawMap() {
     socket.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-        console.log("Received:", data.routes[0].route_coords);
+        console.log("Received:", data);
         if (data.routes) {
           setRoutesData(data.routes);
         }
@@ -119,29 +119,30 @@ export default function LeafletDrawMap() {
           setMovingPoints(data.routes[0].moving_points);
         if (data.routes[0].chunk_status)
           setChunkStatus(data.routes[0].chunk_status);
-        // if (data.data) {
-        //   setSignals((prev) => ({
-        //     ...prev,
-        //     remaining: data.data.signal_details.remain_time,
-        //     NS: data.data.signal_details.green_A,
-        //     EW: data.data.signal_details.green_B,
-        //     phase: data.data.signal_details.curr_phase,
-        //     wait_time: data.data.signal_details.wait_time,
-        //     curr_NS: data.data.signals.signal2.ns,
-        //     curr_EW: data.data.signals.signal2.ew,
-        //     curr_state: data.data.signals.signal2.state,
-        //   }));
-        //   setSignalIcon(() =>
-        //     data.data.signal_details.curr_phase == "EW"
-        //       ? redSignalIcon
-        //       : greenSignalIcon
-        //   );
-        //   setSignalIcon2(() =>
-        //     data.data.signal_details.curr_phase == "NS"
-        //       ? redSignalIcon2
-        //       : greenSignalIcon2
-        //   );
-        // }
+        if (data.data_packet.signal_details.All_details) {
+          if(data.data_packet.signal_details.All_details) console.log("Updating signal data");
+          setSignals((prev) => ({
+            ...prev,
+            remaining: data.data_packet.signal_details.All_details.remain_time,
+            NS: data.data_packet.signal_details.pred_EW,
+            EW: data.data_packet.signal_details.pred_NS,
+            phase: data.data_packet.signal_details.All_details.curr_phase,
+            wait_time: data.data_packet.signal_details.All_details.wait_time,
+            curr_NS: data.data_packet.signal_details.ns,
+            curr_EW: data.data_packet.signal_details.ew,
+            curr_state: data.data_packet.signal_details.All_details.curr_phase,
+          }));
+          setSignalIcon(() =>
+            data.data_packet.signal_details.All_details.curr_phase == "EW"
+              ? redSignalIcon
+              : greenSignalIcon
+          );
+          setSignalIcon2(() =>
+            data.data.signal_details.curr_phase == "NS"
+              ? redSignalIcon2
+              : greenSignalIcon2
+          );
+        }
 
         // DON'T update routeChunks here - it's already set from /route
       } catch (error) {
@@ -227,8 +228,52 @@ export default function LeafletDrawMap() {
   //   setSignalIcon(hasTraffic ? redSignalIcon : greenSignalIcon);
   // }, [movingPoints]); // runs whenever moving points move
 
+  // image upload
+  const [imagePreview, setImagePreview] = useState(null);
+  const [response, setResponse] = useState(null);
+
+  async function handleUpload(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    console.log(file);
+
+    setImagePreview(URL.createObjectURL(file));
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const res = await fetch("http://localhost:8000/detect", {
+      method: "POST",
+      body: formData,
+    });
+
+    const data = await res.json();
+    setResponse(data);
+  }
+
   return (
     <>
+      <div>
+        <h2>Upload Traffic Image</h2>
+
+        <input type="file" accept="image/*" onChange={handleUpload} />
+
+        {imagePreview && (
+          <img
+            src={imagePreview}
+            alt="uploaded"
+            style={{ width: "400px", marginTop: "20px" }}
+          />
+        )}
+
+        {response && (
+          <div>
+            <h3>Detections</h3>
+            <p>Vehicle Count: {response.vehicle_count}</p>
+            <pre>{JSON.stringify(response.signal, null, 2)}</pre>
+          </div>
+        )}
+      </div>
       <div>
         <header className="z-[9999] flex sticky top-0 left-0 shrink-0 items-center justify-between border-b border-white/10 bg-background-light px-6 py-3 font-display text-black bg-gray-100 backdrop-blur-sm bg-opacity-95">
           <div className="flex items-center gap-4">
@@ -330,15 +375,15 @@ export default function LeafletDrawMap() {
                       <Marker key={i} position={p} icon={carIcon} />
                     ))}
                   {route.route_chunks.map((chunk, cIdx) => (
-                      <Polyline
-                        key={cIdx}
-                        positions={chunk}
-                        pathOptions={{ color: chunkStatus[cIdx], weight: 6 }}
-                      />
-                    ))}
+                    <Polyline
+                      key={cIdx}
+                      positions={chunk}
+                      pathOptions={{ color: chunkStatus[cIdx], weight: 6 }}
+                    />
+                  ))}
                 </>
               ))}
-              
+
               <Marker position={signalPosition} icon={signalIcon} />
               <Marker position={signalPosition2} icon={signalIcon2} />
             </MapContainer>

@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr
-from typing import Optional, Tuple
+from typing import Dict, Tuple, Optional
 
 class User(BaseModel):
     name: str
@@ -13,7 +13,7 @@ class TrafficSignal(BaseModel):
     status: Tuple[str, str]  # (NS_status, EW_status)
     last_updated: Optional[str] = None
     signal_Time: Optional[int] = None  # in seconds
-    waiting_Time: int # in seconds
+    waiting_Time: Dict[str, int]  # in seconds
 
 
 
