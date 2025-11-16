@@ -26,7 +26,7 @@ from controllers.signal_controller import (
 from controllers.login_controller import router as login_router
 
 # from database.models import TrafficSignal, User
-
+# from train_signal_model import TrafficLSTM
 
 app = FastAPI()
 
@@ -72,36 +72,40 @@ if not os.path.exists(DATA_FILE):
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "training"))
 
-# Load model and scaler
-from train_signal_model import TrafficLSTM  # ensure class is importable
+## model loading
+# model = TrafficLSTM()
+# model.load_state_dict(torch.load("signal_model.pt"))
+# model.eval()
 
-model = TrafficLSTM()
-model.load_state_dict(torch.load("signal_model.pt"))
-model.eval()
-
-scaler = joblib.load("signal_scaler.gz")
+# scaler = joblib.load("signal_scaler.gz")
 
 
 # predicting density
-def predict_next_density(current_NS, current_EW):
-    now = datetime.now()
-    x = np.array([[current_NS, current_EW, now.hour, now.weekday()]])
-    x_scaled = scaler.transform(x)
-    x_tensor = torch.tensor(x_scaled, dtype=torch.float32)
-    with torch.no_grad():
-        pred = model(x_tensor).numpy()[0]
-    # inverse transform
-    inv = scaler.inverse_transform(
-        [[pred[0], pred[1], now.hour / 23, now.weekday() / 6]]
-    )[0]
-    return int(max(0, inv[0])), int(max(0, inv[1]))
+# def predict_next_density(current_NS, current_EW):
+#     now = datetime.now()
+#     x = np.array([[current_NS, current_EW, now.hour, now.weekday()]])
+#     x_scaled = scaler.transform(x)
+#     x_tensor = torch.tensor(x_scaled, dtype=torch.float32)
+#     with torch.no_grad():
+#         pred = model(x_tensor).numpy()[0]
+#     # inverse transform
+#     inv = scaler.inverse_transform(
+#         [[pred[0], pred[1], now.hour / 23, now.weekday() / 6]]
+#     )[0]
+#     return int(max(0, inv[0])), int(max(0, inv[1]))
 
 
 #  FETCH ROUTE
 
 
+@app.get("/")
+def read_root():
+    return {"message": "WebSocket Traffic System Running ✅"}
+
+
+## getting route cords
 @app.get("/route")
-def route(start_lat: float, start_lon: float, end_lat: float, end_lon: float):
+async def route(start_lat: float, start_lon: float, end_lat: float, end_lon: float):
     # global route_coords, moving_points, route_chunks
     global routes
 
@@ -121,29 +125,193 @@ def route(start_lat: float, start_lon: float, end_lat: float, end_lon: float):
         for i in range(0, len(route_coords), chunk_size)
     ]
 
-    # initialize 10 vehicles spaced along route
+    # initialize 40 vehicles spaced along route
     delay = 20
     moving_points = [route_coords[(i * delay) % len(route_coords)] for i in range(40)]
-    routes.append(
-        {
-            "route_coords": route_coords,
-            "route_chunks": route_chunks,
-            "moving_points": moving_points,
-        }
-    )
+    print("Route and vehicles initialized.")
 
-    return {"routes": routes}
-
-
-def load_signals():
-    global signals
-    # load from DB in future
+    route = {
+        "route_coords": route_coords,
+        "route_chunks": route_chunks,
+        "moving_points": moving_points,
+    }
+    routes.append(route)
+    asyncio.create_task(simulation_loop())
+    return {"routes": route}
 
 
-signals = [
-    # {"id": "signal1", "pos": (28.5708, 77.2087), "state": "NS_GREEN"},
-    # {"id": "signal2", "pos": (28.5708, 77.2084), "state": "EW_GREEN"},
-]
+#  SIMULATION LOOP Calling
+# @app.on_event("startup")
+# async def start_simulation():
+#     asyncio.create_task(simulation_loop())
+
+## directional calculation
+# def get_direction(signal_pos, vehicle_pos):
+# lat_s, lon_s = signal_pos
+# lat_v, lon_v = vehicle_pos
+
+# dlat = lat_v - lat_s
+# dlon = lon_v - lon_s
+
+# # define angular direction from the signal (rough)
+# angle = math.degrees(
+#     math.atan2(dlat, dlon)
+# )  # east=0°, north=90°, west=180/-180°, south=-90°
+
+# if -45 <= angle <= 45:
+#     return "E"  # East
+# elif 45 < angle <= 135:
+#     return "N"  # North
+# elif angle > 135 or angle < -135:
+#     return "W"  # West
+# else:
+#     return "S"  # South
+
+
+## record traffic for training  and update signal
+# async def record_traffic(signal_number, moving_points):
+
+#     # signal position
+#     signal_details = (await get_traffic_signal(signal_number))["signal"]
+#     print(signal_details[0])
+#     signal_position = signal_details[0]["location"]
+
+#     # count vehicles near signal per direction
+#     directions = {"N": 0, "S": 0, "E": 0, "W": 0}
+#     for p in moving_points:
+#         # Check if vehicle is near the signal (radius check)
+#         if (
+#             abs(p[0] - signal_position[0]) < 0.001
+#             and abs(p[1] - signal_position[1]) < 0.001
+#         ):
+#             dir_label = get_direction(signal_position, p)
+#             directions[dir_label] += 1
+
+#     # you now have density per direction
+#     density_N, density_S, density_E, density_W = (
+#         directions["N"],
+#         directions["S"],
+#         directions["E"],
+#         directions["W"],
+#     )
+
+#     NS_density = density_N + density_S
+#     EW_density = density_E + density_W
+#     [predicted_NS, predicted_EW] = predict_next_density(NS_density, EW_density)
+#     print(predicted_NS, predicted_EW)
+#     signal_details = await update_signal(signal_number, predicted_NS, predicted_EW)
+
+#     # update signal in DB
+#     await update_traffic_signal(
+#         signal_number,
+#         {
+#             "status": [
+#                 "{signal_details['curr_phase']}_GREEN",
+#                 f"{'EW' if signal_details['curr_phase']=='NS' else 'NS'}_RED",
+#             ],
+#             "signal_Time": (
+#                 signal_details["green_A"]
+#                 if signal_details["curr_phase"] == "NS"
+#                 else signal_details["green_B"]
+#             ),
+#             "waiting_Time": (
+#                 signal_details["wait_time"]["EW"]
+#                 if signal_details["curr_phase"] == "NS"
+#                 else signal_details["wait_time"]["NS"]
+#             ),
+#         },
+#     )
+
+#     now = datetime.now()
+#     row = [
+#         int(now.timestamp()),
+#         now.hour,
+#         now.weekday(),
+#         NS_density,
+#         EW_density,
+#     ]
+
+#     # with open(DATA_FILE, "a", newline="") as f:
+#     #     writer = csv.writer(f)
+#     #     writer.writerow(row)
+
+#     print(f"📦 Logged data per direction: {row}")
+#     print(f"Predicted densities: NS={predicted_NS}, EW={predicted_EW}")
+
+#     return {"signal_details": signal_details}
+
+
+## updating Signal
+
+
+# async def update_signal(signal_number, predicted_A, predicted_B):
+#     signal_dt = await get_traffic_signal(signal_number)
+#     current_phase = signal_dt["signal"][0]["status"][0].split("_")[0]  # "NS" or "EW"
+#     remaining_time = signal_dt["signal"][0]["signal_Time"]
+
+#     # --- BASE VALUES ---
+#     BASE_GREEN = 20
+#     MAX_EXTRA = 10  # can extend max +40s for congestion
+#     MAX_GREEN = BASE_GREEN + MAX_EXTRA
+#     MIN_GREEN = 15  # safety margin, even for low traffic
+#     SECONDS_PER_VEHICLE = 1.2
+
+#     def calculate_green_time(vehicle_count):
+#         base_time = MIN_GREEN + (vehicle_count * SECONDS_PER_VEHICLE)
+
+#         # Smooth curve for large numbers: saturates slowly
+#         adjusted = min(MAX_GREEN, base_time**0.9)
+#         return int(adjusted)
+
+#     total_density = max(1, predicted_A + predicted_B)  # avoid divide-by-zero
+#     green_NS = calculate_green_time(predicted_A)
+#     green_EW = calculate_green_time(predicted_B)
+
+#     # # proportional allocation of green time
+#     # green_NS = int(max(MIN_GREEN, ratio_NS * MAX_GREEN))
+#     # green_EW = int(max(MIN_GREEN, ratio_EW * MAX_GREEN))
+#     # --- Fairness Tracker ---
+#     # if one side has waited too long, force switch
+#     MAX_WAIT = 30
+#     if not hasattr(update_signal, "wait_time"):
+#         update_signal.wait_time = {"NS": 0, "EW": 0}
+
+#     # --- Signal Switching Logic ---
+#     if remaining_time <= 0:
+#         # Check fairness before switching normally
+#         if update_signal.wait_time["NS"] >= MAX_WAIT:
+#             current_phase = "NS"
+#             remaining_time = green_NS
+#             update_signal.wait_time["NS"] = 0
+#             update_signal.wait_time["EW"] += remaining_time
+#         elif update_signal.wait_time["EW"] >= MAX_WAIT:
+#             current_phase = "EW"
+#             remaining_time = green_EW
+#             update_signal.wait_time["EW"] = 0
+#             update_signal.wait_time["NS"] += remaining_time
+#         else:
+#             # Normal adaptive selection
+#             if predicted_A > predicted_B:
+#                 current_phase = "NS"
+#                 remaining_time = green_NS
+#             else:
+#                 current_phase = "EW"
+#                 remaining_time = green_EW
+
+#             # update waiting times
+#             update_signal.wait_time[current_phase] = 0
+#             other = "EW" if current_phase == "NS" else "NS"
+#             update_signal.wait_time[other] += remaining_time
+#     else:
+#         remaining_time -= 1
+
+#     return {
+#         "curr_phase": current_phase,
+#         "remain_time": remaining_time,
+#         "green_A": green_NS,
+#         "green_B": green_EW,
+#         "wait_time": dict(update_signal.wait_time),
+#     }
 
 
 def distance(a, b):
@@ -162,30 +330,33 @@ async def simulation_loop():
     chunk_status = []
     log_timer = 0
     tick_counter = 0
+    moving_points = routes[0].get("moving_points", [])
 
     while True:
-        #  Wait until the route and signals are ready
-        # if not routes.get("route_coords") or not moving_points:
-        #     print("⏳ Waiting for route initialization...", flush=True)
-        #     await asyncio.sleep(1)
-        #     continue
+        # Wait until the route and signals are ready
+        if not routes[0].get("route_coords") or not moving_points:
+            print("⏳ Waiting for route initialization...", flush=True)
+            await asyncio.sleep(1)
+            continue
 
-        # if not signals:
-        #     print("⚠️ No signals defined yet. Waiting...", flush=True)
-        #     await asyncio.sleep(1)
-        #     continue
+        if not signals:
+            print("⚠️ No signals defined yet. Waiting...", flush=True)
+            await asyncio.sleep(1)
+            continue
 
-        # print(
-        #     f"✅ Running simulation | Vehicles={len(moving_points)} | Signals={len(signals)}",
-        #     flush=True,
-        # )
+        print(
+            f"✅ Running simulation | Vehicles={len(moving_points)} | Signals={len(signals)}",
+            flush=True,
+        )
         signal_Index = 0
+        tick_counter += 1
+        all_routes_payload = []
         for route in routes:
             moving_points = route.get("moving_points", [])
             route_coords = route.get("route_coords", [])
             route_chunks = route.get("route_chunks", [])
 
-            tick_counter += 1
+            
             # Move vehicles
             for i in range(len(moving_points)):
                 should_move = True
@@ -208,46 +379,47 @@ async def simulation_loop():
                             should_move = False
 
                 if should_move:
-                    # if tick_counter % 3 == 0:
-                    index_offsets[i] = (index_offsets[i] + 1) % len(route_coords)
-                    moving_points[i] = route_coords[index_offsets[i]]
+                    if tick_counter %3 == 0:
+                        index_offsets[i] = (index_offsets[i] + 1) % len(route_coords)
+                        moving_points[i] = route_coords[index_offsets[i]]
+                        
 
-            #  Record and broadcast
-            for i in range(len(signals)):
-                last_data_packet = await record_traffic(i + 1, moving_points)
-                print("Recorded:", last_data_packet, flush=True)
-            #  Count vehicles per signal
-            signal_counts = {}  # store per signal ID
+            #         #  Record and broadcast
+            #         for i in range(len(signals)):
+            #             last_data_packet = await record_traffic(i + 1, moving_points)
+            #             print("Recorded:", last_data_packet, flush=True)
+            #         #  Count vehicles per signal
+            #         signal_counts = {}  # store per signal ID
 
-            for signal in signals:
-                ns_vehicles = []
-                ew_vehicles = []
+            #         for signal in signals:
+            #             ns_vehicles = []
+            #             ew_vehicles = []
 
-                for v in moving_points:
-                    d = distance(v, signal["location"])
-                    if d < 45:
-                        if abs(v[0] - signal["location"][0]) < abs(
-                            v[1] - signal["location"][1]
-                        ):
-                            ns_vehicles.append(v)
-                        else:
-                            ew_vehicles.append(v)
+            #             for v in moving_points:
+            #                 d = distance(v, signal["location"])
+            #                 if d < 45:
+            #                     if abs(v[0] - signal["location"][0]) < abs(
+            #                         v[1] - signal["location"][1]
+            #                     ):
+            #                         ns_vehicles.append(v)
+            #                     else:
+            #                         ew_vehicles.append(v)
 
-                # save counts for this specific signal
-                signal_counts[signal["id"]] = {
-                    "ns": len(ns_vehicles),
-                    "ew": len(ew_vehicles),
-                    "state": signal["status"],
-                }
+            #             # save counts for this specific signal
+            #             signal_counts[signal["id"]] = {
+            #                 "ns": len(ns_vehicles),
+            #                 "ew": len(ew_vehicles),
+            #                 "state": signal["status"],
+            #             }
 
-                print(
-                    f"{signal['id']} -> NS={len(ns_vehicles)} | EW={len(ew_vehicles)} | {signal['status']}",
-                    flush=True,
-                )
+            #             print(
+            #                 f"{signal['id']} -> NS={len(ns_vehicles)} | EW={len(ew_vehicles)} | {signal['status']}",
+            #                 flush=True,
+            #             )
 
-            # now update the main data packet safely
-            last_data_packet.update({"signals": signal_counts})
-            #  Compute chunk status
+            #         # now update the main data packet safely
+            #         last_data_packet.update({"signals": signal_counts})
+            #         #  Compute chunk status
             chunk_status = []
             for chunk in route_chunks:
                 count = sum(
@@ -260,12 +432,15 @@ async def simulation_loop():
                 )
                 chunk_status.append("red" if count >= 2 else "green")
 
-            payload = {
-                "moving_points": moving_points,
-                "chunk_status": chunk_status,
-                "route_chunks": route_chunks,
-                # "data": last_data_packet,
-            }
+            all_routes_payload.append(
+                {
+                    "moving_points": moving_points,
+                    "chunk_status": chunk_status,
+                    "route_chunks": route_chunks,
+                    "route_coords": route_coords,
+                }
+            )
+        payload = {"routes": all_routes_payload}
 
         for ws in list(clients):
             try:
@@ -277,11 +452,6 @@ async def simulation_loop():
                     pass
 
         await asyncio.sleep(1)
-
-
-@app.on_event("startup")
-async def start_simulation():
-    asyncio.create_task(simulation_loop())
 
 
 # ---- WEBSOCKET ----
@@ -299,177 +469,3 @@ async def websocket_endpoint(ws: WebSocket):
     except WebSocketDisconnect:
         clients.remove(ws)
         print("Client disconnected")
-
-
-@app.get("/")
-def read_root():
-    return {"message": "WebSocket Traffic System Running ✅"}
-
-
-def get_direction(signal_pos, vehicle_pos):
-    lat_s, lon_s = signal_pos
-    lat_v, lon_v = vehicle_pos
-
-    dlat = lat_v - lat_s
-    dlon = lon_v - lon_s
-
-    # define angular direction from the signal (rough)
-    angle = math.degrees(
-        math.atan2(dlat, dlon)
-    )  # east=0°, north=90°, west=180/-180°, south=-90°
-
-    if -45 <= angle <= 45:
-        return "E"  # East
-    elif 45 < angle <= 135:
-        return "N"  # North
-    elif angle > 135 or angle < -135:
-        return "W"  # West
-    else:
-        return "S"  # South
-
-
-async def record_traffic(signal_number, moving_points):
-
-    # signal position
-    signal_details = (await get_traffic_signal(signal_number))["signal"]
-    print(signal_details[0])
-    signal_position = signal_details[0]["location"]
-
-    # count vehicles near signal per direction
-    directions = {"N": 0, "S": 0, "E": 0, "W": 0}
-    for p in moving_points:
-        # Check if vehicle is near the signal (radius check)
-        if (
-            abs(p[0] - signal_position[0]) < 0.001
-            and abs(p[1] - signal_position[1]) < 0.001
-        ):
-            dir_label = get_direction(signal_position, p)
-            directions[dir_label] += 1
-
-    # you now have density per direction
-    density_N, density_S, density_E, density_W = (
-        directions["N"],
-        directions["S"],
-        directions["E"],
-        directions["W"],
-    )
-
-    NS_density = density_N + density_S
-    EW_density = density_E + density_W
-    [predicted_NS, predicted_EW] = predict_next_density(NS_density, EW_density)
-    print(predicted_NS, predicted_EW)
-    signal_details =  update_signal(predicted_NS, predicted_EW)
-
-    # update signal in DB
-    await update_traffic_signal(
-        signal_number,
-        {
-            "status": [
-                "{signal_details['curr_phase']}_GREEN",
-                f"{'EW' if signal_details['curr_phase']=='NS' else 'NS'}_RED",
-            ],
-            "signal_Time": (
-                signal_details["green_A"]
-                if signal_details["curr_phase"] == "NS"
-                else signal_details["green_B"]
-            ),
-            "waiting_Time": (
-                signal_details["wait_time"]["EW"]
-                if signal_details["curr_phase"] == "NS"
-                else signal_details["wait_time"]["NS"]
-            ),
-        },
-    )
-
-    now = datetime.now()
-    row = [
-        int(now.timestamp()),
-        now.hour,
-        now.weekday(),
-        NS_density,
-        EW_density,
-    ]
-
-    # with open(DATA_FILE, "a", newline="") as f:
-    #     writer = csv.writer(f)
-    #     writer.writerow(row)
-
-    print(f"📦 Logged data per direction: {row}")
-    print(f"Predicted densities: NS={predicted_NS}, EW={predicted_EW}")
-
-    return {"signal_details": signal_details}
-
-
-# for signal
-
-
-current_phase = "NS"
-remaining_time = 0
-
-
-def update_signal(predicted_A, predicted_B):
-    global current_phase, remaining_time
-
-    # --- BASE VALUES ---
-    BASE_GREEN = 20
-    MAX_EXTRA = 10  # can extend max +40s for congestion
-    MAX_GREEN = BASE_GREEN + MAX_EXTRA
-    MIN_GREEN = 15  # safety margin, even for low traffic
-    SECONDS_PER_VEHICLE = 1.2
-
-    def calculate_green_time(vehicle_count):
-        base_time = MIN_GREEN + (vehicle_count * SECONDS_PER_VEHICLE)
-
-        # Smooth curve for large numbers: saturates slowly
-        adjusted = min(MAX_GREEN, base_time**0.9)
-        return int(adjusted)
-
-    total_density = max(1, predicted_A + predicted_B)  # avoid divide-by-zero
-    green_NS = calculate_green_time(predicted_A)
-    green_EW = calculate_green_time(predicted_B)
-
-    # # proportional allocation of green time
-    # green_NS = int(max(MIN_GREEN, ratio_NS * MAX_GREEN))
-    # green_EW = int(max(MIN_GREEN, ratio_EW * MAX_GREEN))
-    # --- Fairness Tracker ---
-    # if one side has waited too long, force switch
-    MAX_WAIT = 30
-    if not hasattr(update_signal, "wait_time"):
-        update_signal.wait_time = {"NS": 0, "EW": 0}
-
-    # --- Signal Switching Logic ---
-    if remaining_time <= 0:
-        # Check fairness before switching normally
-        if update_signal.wait_time["NS"] >= MAX_WAIT:
-            current_phase = "NS"
-            remaining_time = green_NS
-            update_signal.wait_time["NS"] = 0
-            update_signal.wait_time["EW"] += remaining_time
-        elif update_signal.wait_time["EW"] >= MAX_WAIT:
-            current_phase = "EW"
-            remaining_time = green_EW
-            update_signal.wait_time["EW"] = 0
-            update_signal.wait_time["NS"] += remaining_time
-        else:
-            # Normal adaptive selection
-            if predicted_A > predicted_B:
-                current_phase = "NS"
-                remaining_time = green_NS
-            else:
-                current_phase = "EW"
-                remaining_time = green_EW
-
-            # update waiting times
-            update_signal.wait_time[current_phase] = 0
-            other = "EW" if current_phase == "NS" else "NS"
-            update_signal.wait_time[other] += remaining_time
-    else:
-        remaining_time -= 1
-
-    return {
-        "curr_phase": current_phase,
-        "remain_time": remaining_time,
-        "green_A": green_NS,
-        "green_B": green_EW,
-        "wait_time": dict(update_signal.wait_time),
-    }
