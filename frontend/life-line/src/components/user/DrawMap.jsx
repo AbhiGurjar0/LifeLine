@@ -119,29 +119,35 @@ export default function LeafletDrawMap() {
           setMovingPoints(data.routes[0].moving_points);
         if (data.routes[0].chunk_status)
           setChunkStatus(data.routes[0].chunk_status);
-        if (data.data_packet.signal_details.All_details) {
-          if(data.data_packet.signal_details.All_details) console.log("Updating signal data");
-          setSignals((prev) => ({
-            ...prev,
-            remaining: data.data_packet.signal_details.All_details.remain_time,
-            NS: data.data_packet.signal_details.pred_EW,
-            EW: data.data_packet.signal_details.pred_NS,
-            phase: data.data_packet.signal_details.All_details.curr_phase,
-            wait_time: data.data_packet.signal_details.All_details.wait_time,
-            curr_NS: data.data_packet.signal_details.ns,
-            curr_EW: data.data_packet.signal_details.ew,
-            curr_state: data.data_packet.signal_details.All_details.curr_phase,
-          }));
-          setSignalIcon(() =>
-            data.data_packet.signal_details.All_details.curr_phase == "EW"
-              ? redSignalIcon
-              : greenSignalIcon
-          );
-          setSignalIcon2(() =>
-            data.data.signal_details.curr_phase == "NS"
-              ? redSignalIcon2
-              : greenSignalIcon2
-          );
+        if (
+          data.data_packet &&
+          data.data_packet.signal_details &&
+          Object.keys(data.data_packet.signal_details).length > 0
+        ) {
+          const details = data.data_packet.signal_details[1];
+          const all = details?.All_details;
+
+          if (details && all) {
+            setSignals((prev) => ({
+              ...prev,
+              remaining: all.remain_time ?? prev.remaining,
+              NS: details.pred_NS ?? prev.NS,
+              EW: details.pred_EW ?? prev.EW,
+              phase: all.curr_phase ?? prev.phase,
+              wait_time: all.wait_time ?? prev.wait_time,
+              curr_NS: details.ns ?? prev.curr_NS,
+              curr_EW: details.ew ?? prev.curr_EW,
+              curr_state: all.curr_phase ?? prev.curr_state,
+            }));
+
+            setSignalIcon(() =>
+              all.curr_phase === "EW" ? redSignalIcon : greenSignalIcon
+            );
+
+            setSignalIcon2(() =>
+              all.curr_phase === "NS" ? redSignalIcon2 : greenSignalIcon2
+            );
+          }
         }
 
         // DON'T update routeChunks here - it's already set from /route
