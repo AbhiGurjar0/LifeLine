@@ -1,5 +1,5 @@
 import cv2
-from fastapi import FastAPI, File, UploadFile, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, File, Depends, UploadFile, WebSocket, WebSocketDisconnect
 import asyncio
 from fastapi.middleware.cors import CORSMiddleware
 import requests, asyncio, os
@@ -15,7 +15,7 @@ from websockets.sync.client import connect
 import csv
 from datetime import datetime
 import joblib
-import joblib
+from middlewares.is_loggedin import is_logged_in
 
 
 # import joblib
@@ -110,10 +110,20 @@ def read_root():
 
 
 ## getting route cords
+
+
 @app.get("/route")
-async def route(start_lat: float, start_lon: float, end_lat: float, end_lon: float):
+async def route(
+    start_lat: float,
+    start_lon: float,
+    end_lat: float,
+    end_lon: float,
+   
+):
     # global route_coords, moving_points, route_chunks
     global routes
+    # cleanLon = start_lon.trim()
+
 
     url = (
         f"https://api.tomtom.com/routing/1/calculateRoute/"
@@ -155,7 +165,7 @@ async def route(start_lat: float, start_lon: float, end_lat: float, end_lon: flo
 
 
 @app.post("/detect")
-async def detect(file: UploadFile = File(...)):
+async def detect(file: UploadFile = File(...), logged_in: bool = Depends(is_logged_in)):
     # Read image
     contents = await file.read()
     nparr = np.frombuffer(contents, np.uint8)
@@ -337,7 +347,6 @@ async def update_signal(signal_number, predicted_A, predicted_B):
             signal_change = True
         else:
             signal_change = False
-        
 
         # Persist full new signal state (phase switch)
         update_payload = {
@@ -376,8 +385,9 @@ async def update_signal(signal_number, predicted_A, predicted_B):
 
 
 def distance(a, b):
-    ans = math.sqrt(((a[0] - b[0]) * 111000) ** 2 + ((a[1] - b[1]) * 111000) ** 2)
-    return ans
+    if not a or not b:
+        return float("inf")  # or return None
+    return math.sqrt(((a[0] - b[0]) * 111000) ** 2 + ((a[1] - b[1]) * 111000) ** 2)
 
 
 #  SIMULATION LOOP
@@ -491,7 +501,9 @@ async def simulation_loop():
                     signal["signal_Time"] = get_signal_details["remain_time"]
                     signal["waiting_Time"] = get_signal_details["wait_time"]
                     message = ""
-                    if(signal_change := get_signal_details.get("signal_change")) is False:
+                    if (
+                        signal_change := get_signal_details.get("signal_change")
+                    ) is False:
                         message = f"Signal Time Extended by {get_signal_details['remain_time']}s"
 
                     signal_counts[sig_num] = {
@@ -545,6 +557,8 @@ async def simulation_loop():
 
 
 # ---- WEBSOCKET ----
+
+
 @app.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket):
     await ws.accept()

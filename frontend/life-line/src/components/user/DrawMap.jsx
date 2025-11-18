@@ -6,7 +6,7 @@ import "leaflet-draw";
 import useWebSocket from "react-use-websocket";
 import { Card, CardContent } from "../../components/ui/card";
 import { Progress } from "../../components/ui/progress";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   MapContainer,
   TileLayer,
@@ -18,48 +18,48 @@ import Sidebar from "./Sidebar";
 
 const dotIcon = L.divIcon({
   className: "dot-icon",
-  html: `<div style="width:8px;height:8px;background:red;border-radius:50%;"></div>`,
+  html: `<div class="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>`,
 });
 const dotIcon2 = L.divIcon({
   className: "dot-icon",
-  html: `<div style="width:20px;height:20px;background:green;border-radius:50%;"></div>`,
+  html: `<div class="w-5 h-5 bg-green-500 rounded-full shadow-lg"></div>`,
 });
 
 const greenSignalIcon = L.divIcon({
-  className: "",
+  className: "signal-icon",
   html: `
-    <div style="width:20px;height:40px;background:black;border-radius:4px;padding:4px;display:flex;flex-direction:column;justify-content:center;align-items:center;">
-      <div style="width:12px;height:12px;background:green;border-radius:50%;box-shadow:0 0 8px green;"></div>
+    <div class="w-5 h-10 bg-gray-900 rounded flex flex-col justify-center items-center p-1 shadow-xl border border-gray-700">
+      <div class="w-3 h-3 bg-green-500 rounded-full shadow-[0_0_12px_green] animate-pulse"></div>
     </div>
   `,
 });
 const greenSignalIcon2 = L.divIcon({
-  className: "",
+  className: "signal-icon",
   html: `
-    <div style="width:40px;height:20px;background:black;border-radius:4px;padding:4px;display:flex;flex-direction:column;justify-content:center;align-items:center;">
-      <div style="width:12px;height:12px;background:green;border-radius:50%;box-shadow:0 0 8px green;"></div>
+    <div class="w-10 h-5 bg-gray-900 rounded flex justify-center items-center p-1 shadow-xl border border-gray-700">
+      <div class="w-3 h-3 bg-green-500 rounded-full shadow-[0_0_12px_green] animate-pulse"></div>
     </div>
   `,
 });
 const carIcon = L.icon({
-  iconUrl: "./car.png", // Put a small car icon in public folder
+  iconUrl: "./car.png",
   iconSize: [40, 40],
   iconAnchor: [20, 20],
 });
 
 const redSignalIcon = L.divIcon({
-  className: "",
+  className: "signal-icon",
   html: `
-    <div style="width:20px;height:40px;background:black;border-radius:4px;padding:4px;display:flex;flex-direction:column;justify-content:center;align-items:center;">
-      <div style="width:12px;height:12px;background:red;border-radius:50%;box-shadow:0 0 8px red;"></div>
+    <div class="w-5 h-10 bg-gray-900 rounded flex flex-col justify-center items-center p-1 shadow-xl border border-gray-700">
+      <div class="w-3 h-3 bg-red-500 rounded-full shadow-[0_0_12px_red]"></div>
     </div>
   `,
 });
 const redSignalIcon2 = L.divIcon({
-  className: "",
+  className: "signal-icon",
   html: `
-    <div style="width:40px;height:20px;background:black;border-radius:4px;padding:4px;display:flex;flex-direction:column;justify-content:center;align-items:center;">
-      <div style="width:12px;height:12px;background:red;border-radius:50%;box-shadow:0 0 8px red;"></div>
+    <div class="w-10 h-5 bg-gray-900 rounded flex justify-center items-center p-1 shadow-xl border border-gray-700">
+      <div class="w-3 h-3 bg-red-500 rounded-full shadow-[0_0_12px_red]"></div>
     </div>
   `,
 });
@@ -178,6 +178,7 @@ export default function LeafletDrawMap() {
           `http://localhost:8000/route?start_lat=28.612894&start_lon=77.229446 &end_lat=28.524428&end_lon=77.185456 `
         );
         res = await res.json();
+        // console.log("Fetched routeChunksData:", res.user);
         res = res.routes;
 
         const routeCoords = res.route_coords;
@@ -258,52 +259,65 @@ export default function LeafletDrawMap() {
     }
   }, [message]);
 
-
-
   return (
-    <>
-      <div>
-        <header className="z-[9999] flex sticky top-0 left-0 shrink-0 items-center justify-between border-b border-white/10 bg-background-light px-6 py-3 font-display text-black bg-gray-100 backdrop-blur-sm bg-opacity-95">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+      {/* Modern Header */}
+      <header className="fixed w-[100vw]  top-0 z-50 bg-white/90 backdrop-blur-xl border-b border-slate-200 px-8 py-4 shadow-sm">
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <motion.span
-              className="material-symbols-outlined text-2xl"
-              whileHover={{ scale: 1.1, rotate: 15 }}
-              transition={{ type: "spring", stiffness: 300 }}
+            <motion.div
+              className="w-12 h-12 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl flex items-center justify-center shadow-lg"
+              whileHover={{ scale: 1.05, rotate: 5 }}
+              whileTap={{ scale: 0.95 }}
             >
-              traffic
-            </motion.span>
-            <motion.h2
-              className="text-lg font-bold leading-tight tracking-[-0.015em]"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.5 }}
-            >
-              City Traffic Command
-            </motion.h2>
+              <span className="text-white text-xl">🚦</span>
+            </motion.div>
+            <div>
+              <motion.h1
+                className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+              >
+                City Traffic Command
+              </motion.h1>
+              <p className="text-slate-600 text-sm">
+                Real-time traffic monitoring & management
+              </p>
+            </div>
           </div>
-          <div className="flex flex-1 justify-end gap-4">
-            <motion.label
-              className="flex flex-col h-10 w-full max-w-sm"
-              whileFocus={{ scale: 1.02 }}
-            >
-              <div className="flex w-full flex-1 items-stretch rounded-lg h-full backdrop-blur-sm bg-zinc-200/90">
-                <div className="text-gray-400 flex border-none bg-zinc-200 items-center justify-center pl-3 rounded-l-lg border-r-0">
-                  <span className="material-symbols-outlined">search</span>
+
+          <div className="flex items-center gap-4">
+            <motion.div className="relative" whileFocus={{ scale: 1.02 }}>
+              <div className="flex w-80 items-stretch rounded-xl bg-slate-100/80 backdrop-blur-sm border border-slate-200">
+                <div className="flex items-center justify-center pl-3 text-slate-500">
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                    />
+                  </svg>
                 </div>
                 <input
-                  className="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-black focus:outline-0 focus:ring-0 border-none bg-zinc-200 focus:border-none h-full placeholder:text-gray-400 px-4 rounded-l-none border-l-0 pl-2 text-base font-normal leading-normal focus:bg-white transition-colors duration-200"
+                  className="w-full px-3 py-2.5 bg-transparent border-none focus:outline-none focus:ring-0 placeholder-slate-500 text-slate-800"
                   placeholder="Search for intersections or addresses"
                 />
               </div>
-            </motion.label>
+            </motion.div>
+
             <div className="flex gap-2">
               <motion.button
-                className="flex max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-10 bg-white text-black gap-2 text-sm font-bold leading-normal tracking-[0.015em] min-w-0 px-2.5 hover:shadow-lg transition-all duration-200"
+                className="p-3 bg-white hover:bg-slate-100 rounded-xl shadow-sm border border-slate-200 transition-all duration-200"
                 whileHover={{ scale: 1.05, y: -2 }}
                 whileTap={{ scale: 0.95 }}
               >
-                <motion.span
-                  className="material-symbols-outlined"
+                <motion.div
                   animate={{
                     scale: [1, 1.2, 1],
                   }}
@@ -313,222 +327,370 @@ export default function LeafletDrawMap() {
                     repeatType: "reverse",
                   }}
                 >
-                  notifications
-                </motion.span>
+                  <svg
+                    className="w-5 h-5 text-slate-700"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15 17h5l-5 5v-5zM4 6h16M4 12h8m-8 6h6"
+                    />
+                  </svg>
+                </motion.div>
               </motion.button>
+
               <motion.button
-                className="flex max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-10 bg-white text-black gap-2 text-sm font-bold leading-normal tracking-[0.015em] min-w-0 px-2.5 hover:shadow-lg transition-all duration-200"
+                className="p-3 bg-white hover:bg-slate-100 rounded-xl shadow-sm border border-slate-200 transition-all duration-200"
                 whileHover={{ scale: 1.05, y: -2 }}
                 whileTap={{ scale: 0.95 }}
               >
-                <span className="material-symbols-outlined">settings</span>
-              </motion.button>
-            </div>
-            <motion.div
-              className="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10 cursor-pointer border-2 border-transparent hover:border-blue-500 transition-all duration-300"
-              data-alt="User profile picture"
-              style={{
-                backgroundImage: `url(
-            "https://lh3.googleusercontent.com/aida-public/AB6AXuCNFkrQLsbAuoBZp2vi7tFNSaueqiG4isoudsHNGXy4OCOSVqqF6WQp_fjau7-5fxyFFIbgul31lBwnqvVmov1kcdsPFTrWGOi83s9amJwNejH6WAc1IUtDAfQCC0ZD9Jl8gt3cRR9b1YVdqvepCjA0dvBd7iPiE6u6X29bGrKHrBZpP0URk-1LPlBKKdqNYnVgdtGieIAHFOT96TB2irlxiakiQ96l8NmVYtaeudyaljKN32fCR0qrmLk0URhz7iOInE7llB8AaJk"
-          )`,
-              }}
-              whileHover={{ scale: 1.1, rotate: 5 }}
-              whileTap={{ scale: 0.9 }}
-            />
-          </div>
-        </header>
-        <div className="w-full h-screen flex">
-          <div className="w-[20vw] h-screen fixed">
-            <Sidebar />
-          </div>
-          <div className="w-[80vw] h-[80vh] ml-[20vw] mt-[2vh]">
-            <MapContainer
-              center={[28.6139, 77.209]}
-              zoom={11}
-              style={{ height: "100vh" }}
-            >
-              <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-              {routesData.map((route, routeIndex) => (
-                <>
-                  <Polyline
-                    key={routeIndex}
-                    positions={route.route_coords}
-                    pathOptions={{
-                      color: routeIndex === 0 ? "blue" : "orange",
-                    }}
+                <svg
+                  className="w-5 h-5 text-slate-700"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
                   />
-                  <Polyline key={`coords-${routeIndex}`} positions={coords} />
-                  {isAdmin &&
-                    route.moving_points.map((p, i) => (
-                      <Marker key={i} position={p} icon={carIcon} />
-                    ))}
-                  {route.route_chunks.map((chunk, cIdx) => (
-                    <Polyline
-                      key={cIdx}
-                      positions={chunk}
-                      pathOptions={{ color: chunkStatus[cIdx], weight: 6 }}
-                    />
-                  ))}
-                </>
-              ))}
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                  />
+                </svg>
+              </motion.button>
 
-              <Marker position={signalPosition} icon={signalIcon} />
-              <Marker position={signalPosition2} icon={signalIcon2} />
-            </MapContainer>
-          </div>
-          <motion.div
-            className="w-1/3 bg-gray-900 p-4 overflow-y-auto h-screen text-white border-l border-gray-800 backdrop-blur-sm bg-opacity-95"
-            initial={{ x: 100, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            transition={{ duration: 0.5 }}
-          >
-            <motion.h2
-              className="text-2xl font-semibold mb-4 text-center text-blue-400"
-              animate={{
-                textShadow: [
-                  "0 0 8px rgba(59, 130, 246, 0.5)",
-                  "0 0 15px rgba(59, 130, 246, 0.8)",
-                  "0 0 8px rgba(59, 130, 246, 0.5)",
-                ],
-              }}
-              transition={{ duration: 2, repeat: Infinity }}
-            >
-              🚦 Live Signal Dashboard
-            </motion.h2>
-
-            {signals && (
               <motion.div
-                key={signals.id}
-                whileHover={{ scale: 1.02, y: -5 }}
-                whileTap={{ scale: 0.98 }}
-                className="mb-4 cursor-pointer"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3 }}
-              >
-                <Card className="bg-gray-800 shadow-lg border border-gray-700 hover:shadow-2xl hover:border-blue-500/50 transition-all duration-300">
-                  <CardContent className="p-4">
-                    <div className="flex justify-between items-center">
-                      <motion.h3
-                        className="font-semibold text-lg"
-                        whileHover={{ color: "#60a5fa" }}
-                      >
-                        {signals.name}
-                      </motion.h3>
-                      <motion.span
-                        className={`px-3 py-1 rounded-full text-xs font-medium ${getPhaseColor(
-                          signals.phase
-                        )}`}
-                        whileHover={{ scale: 1.1 }}
-                        animate={{
-                          boxShadow: [
-                            "0 0 0px rgba(59, 130, 246, 0)",
-                            "0 0 10px currentColor",
-                            "0 0 0px rgba(59, 130, 246, 0)",
-                          ],
-                        }}
-                        transition={{ duration: 2, repeat: Infinity }}
-                      >
-                        {signals.phase === "NS" ? "North-South" : "East-West"}
-                      </motion.span>
-                    </div>
+                className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full cursor-pointer border-2 border-white shadow-lg"
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+              />
+            </div>
+          </div>
+        </div>
+      </header>
 
-                    <div className="mt-3 text-sm space-y-2">
-                      <motion.p
-                        className="flex items-center gap-2"
-                        whileHover={{ x: 5 }}
-                      >
-                        ⏱️ Remaining Time:{" "}
-                        <span className="text-blue-400 font-bold">
-                          {signals.remaining}s
-                        </span>
-                      </motion.p>
-                      <motion.p
-                        className="flex items-center gap-2"
-                        whileHover={{ x: 5 }}
-                      >
-                        🚗 Predicted Vehicles: NS={signals.NS} | EW={signals.EW}
-                      </motion.p>
-                      <motion.p
-                        className="flex items-center gap-2"
-                        whileHover={{ x: 5 }}
-                      >
-                        🚗 Current Vehicles: NS={signals.curr_NS} | EW=
-                        {signals.curr_EW} | curr_state = {signals.curr_state}
-                      </motion.p>
-                      <p>current_phase = {signals.phase}</p>
-                      <motion.p
-                        className="flex items-center gap-2"
-                        whileHover={{ x: 5 }}
-                      >
-                        Wait Time(NS) ={signals.wait_time.NS} | Wait Time(EW) =
-                        {signals.wait_time.EW}
-                      </motion.p>
+      <div className="flex mt-20">
+        {/* Sidebar */}
+        <div className="w-60 h-screen fixed">
+          <Sidebar />
+        </div>
+
+        {/* Main Content */}
+        <div className="ml-60 flex-1 mt-16 p-6 overflow-hidden">
+          <div className="grid grid-cols-3 gap-6 h-[calc(100vh-100px)]">
+            {/* Map Container */}
+            <div className="col-span-2">
+              <motion.div
+                className="bg-white rounded-2xl shadow-xl overflow-hidden border border-slate-200 h-full"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.5 }}
+              >
+                <div className="p-6 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white">
+                  <h2 className="text-xl font-bold text-slate-800">
+                    Live Traffic Map
+                  </h2>
+                  <p className="text-slate-600">
+                    Real-time signal status and vehicle movement
+                  </p>
+                </div>
+                <div className="h-[calc(100%-80px)]">
+                  <MapContainer
+                    center={[28.6139, 77.209]}
+                    zoom={12}
+                    style={{ height: "100%", width: "100%" }}
+                    className="rounded-b-2xl"
+                  >
+                    <TileLayer
+                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                      attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                    />
+                    {routesData.map((route, routeIndex) => (
+                      <div key={routeIndex}>
+                        <Polyline
+                          positions={route.route_coords}
+                          pathOptions={{
+                            color: routeIndex === 0 ? "blue" : "orange",
+                            weight: 4,
+                            opacity: 0.8,
+                          }}
+                        />
+                        <Polyline
+                          key={`coords-${routeIndex}`}
+                          positions={coords}
+                        />
+                        {isAdmin &&
+                          route.moving_points.map((p, i) => (
+                            <Marker key={i} position={p} icon={carIcon} />
+                          ))}
+                        {route.route_chunks.map((chunk, cIdx) => (
+                          <Polyline
+                            key={cIdx}
+                            positions={chunk}
+                            pathOptions={{
+                              color: chunkStatus[cIdx],
+                              weight: 8,
+                              opacity: 0.9,
+                            }}
+                          />
+                        ))}
+                      </div>
+                    ))}
+
+                    <Marker position={signalPosition} icon={signalIcon} />
+                    <Marker position={signalPosition2} icon={signalIcon2} />
+                  </MapContainer>
+                </div>
+              </motion.div>
+            </div>
+
+            {/* Signals Panel */}
+            <div className="space-y-6 w-[27vw]">
+              <motion.div
+                className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.2 }}
+              >
+                <div className="p-6 border-b border-slate-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+                  <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                    <span className="text-2xl">🚦</span>
+                    Live Signal Dashboard
+                  </h2>
+                  <p className="text-slate-600 text-sm">
+                    Real-time traffic signal monitoring
+                  </p>
+                </div>
+
+                <div className="p-6">
+                  {signals && (
+                    <motion.div
+                      key={signals.id}
+                      whileHover={{ scale: 1.02, y: -2 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="cursor-pointer mb-6"
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                    >
+                      <Card className="bg-gradient-to-br from-slate-800 to-slate-900 shadow-2xl border border-slate-700 hover:border-blue-500/50 transition-all duration-300 group">
+                        <CardContent className="p-6">
+                          <div className="flex justify-between items-start mb-4">
+                            <motion.h3
+                              className="font-bold text-lg text-white group-hover:text-blue-300 transition-colors"
+                              whileHover={{ x: 5 }}
+                            >
+                              {signals.name}
+                            </motion.h3>
+                            <motion.span
+                              className={`px-3 py-1.5 rounded-full text-xs font-semibold ${getPhaseColor(
+                                signals.phase
+                              )} text-white shadow-lg`}
+                              whileHover={{ scale: 1.1 }}
+                              animate={{
+                                boxShadow: [
+                                  "0 0 0px rgba(59, 130, 246, 0)",
+                                  "0 0 15px currentColor",
+                                  "0 0 0px rgba(59, 130, 246, 0)",
+                                ],
+                              }}
+                              transition={{ duration: 2, repeat: Infinity }}
+                            >
+                              {signals.phase === "NS"
+                                ? "North-South"
+                                : "East-West"}
+                            </motion.span>
+                          </div>
+
+                          <div className="space-y-4 text-slate-200">
+                            <motion.div
+                              className="flex justify-between items-center p-3 bg-slate-700/50 rounded-lg"
+                              whileHover={{
+                                x: 5,
+                                backgroundColor: "rgba(51, 65, 85, 0.8)",
+                              }}
+                            >
+                              <span className="flex items-center gap-2">
+                                ⏱️ Remaining Time
+                              </span>
+                              <span
+                                className={`text-lg font-bold ${
+                                  signals.remaining <= 5
+                                    ? "text-red-400 animate-pulse"
+                                    : "text-blue-400"
+                                }`}
+                              >
+                                {signals.remaining}s
+                              </span>
+                            </motion.div>
+
+                            <motion.div
+                              className="flex justify-between items-center p-3 bg-slate-700/50 rounded-lg"
+                              whileHover={{
+                                x: 5,
+                                backgroundColor: "rgba(51, 65, 85, 0.8)",
+                              }}
+                            >
+                              <span>🚗 Predicted Vehicles</span>
+                              <span className="font-semibold text-amber-400">
+                                NS={signals.NS} | EW={signals.EW}
+                              </span>
+                            </motion.div>
+
+                            <motion.div
+                              className="p-3 bg-slate-700/50 rounded-lg"
+                              whileHover={{
+                                x: 5,
+                                backgroundColor: "rgba(51, 65, 85, 0.8)",
+                              }}
+                            >
+                              <div className="flex justify-between items-center mb-2">
+                                <span>📊 Congestion Level</span>
+                                <span
+                                  className={`font-semibold ${getPredictionColor(
+                                    signals.prediction
+                                  )}`}
+                                >
+                                  {signals.prediction}
+                                </span>
+                              </div>
+                              <Progress
+                                className="w-full bg-slate-600 h-2 rounded-full overflow-hidden"
+                                value={Math.min(
+                                  (signals.NS + signals.EW) * 3,
+                                  100
+                                )}
+                              />
+                            </motion.div>
+
+                            <motion.div
+                              className="grid grid-cols-2 gap-3 text-sm"
+                              whileHover={{ scale: 1.02 }}
+                            >
+                              <div className="text-center p-2 bg-slate-700/50 rounded-lg">
+                                <div className="text-slate-400">
+                                  Wait Time NS
+                                </div>
+                                <div className="font-semibold text-green-400">
+                                  {signals.wait_time.NS}s
+                                </div>
+                              </div>
+                              <div className="text-center p-2 bg-slate-700/50 rounded-lg">
+                                <div className="text-slate-400">
+                                  Wait Time EW
+                                </div>
+                                <div className="font-semibold text-green-400">
+                                  {signals.wait_time.EW}s
+                                </div>
+                              </div>
+                            </motion.div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  )}
+
+                  {/* Upload Section */}
+                  <motion.div
+                    className="bg-slate-50 rounded-xl p-4 border border-slate-200"
+                    whileHover={{ scale: 1.02 }}
+                  >
+                    <h3 className="font-semibold text-slate-800 mb-3">
+                      📸 Traffic Analysis
+                    </h3>
+                    <label className="block cursor-pointer">
+                      <input
+                        type="file"
+                        className="hidden"
+                        accept="image/*"
+                        onChange={handleUpload}
+                      />
                       <motion.div
-                        className="flex items-center mt-2"
+                        className="w-full py-4 bg-white border-2 border-dashed border-slate-300 rounded-xl text-center hover:border-blue-500 transition-colors"
                         whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
                       >
-                        <span>Congestion:</span>
-                        <Progress
-                          className="ml-2 w-full bg-gray-700"
-                          value={Math.min((signals.NS + signals.EW) * 3, 100)}
+                        <div className="text-slate-600 font-medium">
+                          Upload Traffic Image
+                        </div>
+                        <div className="text-slate-500 text-sm mt-1">
+                          Click to browse files
+                        </div>
+                      </motion.div>
+                    </label>
+
+                    {imagePreview && (
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="mt-4"
+                      >
+                        <img
+                          src={imagePreview}
+                          alt="uploaded"
+                          className="w-full rounded-lg shadow-lg"
                         />
                       </motion.div>
-                      <motion.p
-                        className="mt-2 flex items-center gap-2"
-                        whileHover={{ x: 5 }}
+                    )}
+
+                    {response && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="mt-4 p-4 bg-white rounded-lg border border-slate-200"
                       >
-                        🧠 Prediction:{" "}
-                        <span
-                          className={`font-semibold ${getPredictionColor(
-                            signals.prediction
-                          )}`}
-                        >
-                          {signals.prediction}
-                        </span>
-                      </motion.p>
-                    </div>
-                  </CardContent>
-                </Card>
+                        <h4 className="font-semibold text-slate-800 mb-2">
+                          Analysis Results
+                        </h4>
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-slate-600">
+                              Vehicle Count:
+                            </span>
+                            <span className="font-semibold text-blue-600">
+                              {response.vehicle_count}
+                            </span>
+                          </div>
+                          <pre className="text-xs bg-slate-50 p-2 rounded overflow-auto">
+                            {JSON.stringify(response.signal, null, 2)}
+                          </pre>
+                        </div>
+                      </motion.div>
+                    )}
+                  </motion.div>
+                </div>
               </motion.div>
-            )}
-          </motion.div>
-        </div>
-      </div>
-      {visible && (
-        <div
-          className="
-            z-[999999] fixed top-[10vh] right-0 -translate-x-1/2
-            bg-[#111827]/80 backdrop-blur-xl
-            text-white px-4 py-2
-            rounded-xl shadow-lg
-            animate-fadeInUp
-          "
-        >
-          {message}
-        </div>
-      )}
-      <div>
-        <h2>Upload Traffic Image</h2>
-
-        <input type="file" accept="image/*" onChange={handleUpload} />
-
-        {imagePreview && (
-          <img
-            src={imagePreview}
-            alt="uploaded"
-            style={{ width: "400px", marginTop: "20px" }}
-          />
-        )}
-
-        {response && (
-          <div>
-            <h3>Detections</h3>
-            <p>Vehicle Count: {response.vehicle_count}</p>
-            <pre>{JSON.stringify(response.signal, null, 2)}</pre>
+            </div>
           </div>
-        )}
+        </div>
       </div>
-    </>
+
+      {/* Notification */}
+      <AnimatePresence>
+        {visible && (
+          <motion.div
+            className="fixed top-6 right-6 bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-xl shadow-2xl backdrop-blur-sm z-[9999]"
+            initial={{ opacity: 0, x: 100, scale: 0.8 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            exit={{ opacity: 0, x: 100, scale: 0.8 }}
+            transition={{ type: "spring", stiffness: 300 }}
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+              <span className="font-medium">{message}</span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }

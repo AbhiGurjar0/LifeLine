@@ -8,10 +8,6 @@ const Dashboard = () => {
   return (
     <>
      <DrawMap/>
-     {/* <MapExample/> */}
-     {/* <AdminLogin/ > */}
-
-      
     </>
   );
 };

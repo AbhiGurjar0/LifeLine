@@ -1,6 +1,7 @@
+import email
 from database.schemas import all_users_data
 from config.collection import collection
-from database.models import User
+from database.models import User , LoginData
 from bson.objectid import ObjectId
 import bcrypt
 from fastapi import APIRouter
@@ -23,7 +24,7 @@ async def get_users():
     return {"users": users}
 
 
-@router.post("/login_user")
+@router.post("/register_user")
 async def add_user(new_user: User):
     new_user.password = hash_password(new_user.password)
     collection.insert_one(dict(new_user))
@@ -48,3 +49,14 @@ async def delete_user(user_id: str):
         return {"message": "User not found"}
     collection.delete_one({"_id": user_id})
     return {"message": "User deleted successfully"}
+
+
+@router.post("/login_user")
+async def login_user(data: LoginData):
+    user = collection.find_one({"email": data.email})
+    if not user:
+        return {"message": "Invalid credentials"}
+    is_valid = verify_password(data.password, user["password"])
+    if not is_valid:
+        return {"message": "Invalid credentials"}
+    return {"message": "User logged in successfully"}

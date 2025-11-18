@@ -1,10 +1,16 @@
 from pydantic import BaseModel, EmailStr
 from typing import Dict, Tuple, Optional
 
+
 class User(BaseModel):
     name: str
     email: EmailStr
-    password: str    # Raw password during registration
+    password: str  # Raw password during registration
+
+
+class LoginData(BaseModel):
+    email: str
+    password: str
 
 
 class TrafficSignal(BaseModel):
@@ -14,9 +20,3 @@ class TrafficSignal(BaseModel):
     last_updated: Optional[str] = None
     signal_Time: Optional[int] = None  # in seconds
     waiting_Time: Dict[str, int]  # in seconds
-
-
-
-
-
-

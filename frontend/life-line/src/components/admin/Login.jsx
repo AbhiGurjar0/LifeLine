@@ -11,11 +11,19 @@ const AdminLogin = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
-
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-
-    console.log("Login attempt:", { email, password, rememberMe });
+    let res = await fetch("http://localhost:8000/admin/login_user", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ email, password, rememberMe }),
+    });
+    res = await res.json();
+    if (res.message === "User logged in successfully") {
+      window.location.href = "/"; // Redirect to dashboard
+    } else {
+      alert("Login failed: " + res.message);
+    }
     setIsLoading(false);
   };
 
