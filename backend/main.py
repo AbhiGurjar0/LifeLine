@@ -64,7 +64,7 @@ chunk_status = []
 signal_position = [28.5677, 77.2080]
 last_data_packet = {}
 routes = []  # list of route dicts
-
+counter = 0
 clients = set()
 
 DATA_FILE = "traffic_history.csv"
@@ -269,10 +269,9 @@ async def record_traffic(signal_number, moving_points):
 
 
 async def update_signal(signal_number, predicted_A, predicted_B):
-    """
-    Returns dict with updated signal info and also persists changes to DB.
-    signal_number should be your signal's signal_Number (int).
-    """
+    global counter
+    signal_change = None
+
     # load current db state for this signal
     signal_dt = await get_traffic_signal(signal_number)
     sig = signal_dt["signal"][0]
@@ -310,6 +309,7 @@ async def update_signal(signal_number, predicted_A, predicted_B):
 
     # --- Decision & persistence ---
     if remaining_time <= 0:
+        phase = current_phase
         # choose phase with fairness checks
         if wait_time.get("NS", 0) >= MAX_WAIT:
             current_phase = "NS"
@@ -333,6 +333,11 @@ async def update_signal(signal_number, predicted_A, predicted_B):
             wait_time[current_phase] = 0
             other = "EW" if current_phase == "NS" else "NS"
             wait_time[other] = wait_time.get(other, 0) + remaining_time
+        if phase != current_phase:
+            signal_change = True
+        else:
+            signal_change = False
+        
 
         # Persist full new signal state (phase switch)
         update_payload = {
@@ -344,7 +349,11 @@ async def update_signal(signal_number, predicted_A, predicted_B):
 
     else:
         # just decrement the timer and persist countdown + waiting_Time
-        remaining_time = int(remaining_time) - 1
+        if counter % 2 == 0:
+            remaining_time = int(remaining_time) - 1
+        else:
+            remaining_time = int(remaining_time) - 0
+        counter = counter + 1
         if remaining_time < 0:
             remaining_time = 0
 
@@ -362,6 +371,7 @@ async def update_signal(signal_number, predicted_A, predicted_B):
         "green_A": green_NS,
         "green_B": green_EW,
         "wait_time": {"NS": int(wait_time["NS"]), "EW": int(wait_time["EW"])},
+        "signal_change": signal_change,
     }
 
 
@@ -446,7 +456,7 @@ async def simulation_loop():
                     moving_points[i] = route_coords[index_offsets[i]]
 
             # Every log interval (e.g., every 5 seconds) compute and update signals
-            if log_timer >= 5:
+            if log_timer >= 2:
                 log_timer = 0
                 for signal in signals:
                     ns_vehicles = []
@@ -480,6 +490,9 @@ async def simulation_loop():
                     ]
                     signal["signal_Time"] = get_signal_details["remain_time"]
                     signal["waiting_Time"] = get_signal_details["wait_time"]
+                    message = ""
+                    if(signal_change := get_signal_details.get("signal_change")) is False:
+                        message = f"Signal Time Extended by {get_signal_details['remain_time']}s"
 
                     signal_counts[sig_num] = {
                         "ns": len(ns_vehicles),
@@ -488,6 +501,7 @@ async def simulation_loop():
                         "pred_NS": predicted_NS,
                         "pred_EW": predicted_EW,
                         "All_details": get_signal_details,
+                        "message": message,
                     }
 
             # chunk status

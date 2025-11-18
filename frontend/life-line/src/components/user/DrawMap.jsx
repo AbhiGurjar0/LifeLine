@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import L, { PolyUtil } from "leaflet";
+import L, { PolyUtil, popup } from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "leaflet-draw/dist/leaflet.draw.css";
 import "leaflet-draw";
@@ -74,6 +74,7 @@ export default function LeafletDrawMap() {
   const [routeChunks2, setRouteChunks2] = useState([]);
   const [chunkStatus2, setChunkStatus2] = useState([]);
   const [routes, setRoutes] = useState({});
+  const [message, setMessage] = useState([]);
 
   const [routesData, setRoutesData] = useState([]);
 
@@ -147,6 +148,9 @@ export default function LeafletDrawMap() {
             setSignalIcon2(() =>
               all.curr_phase === "NS" ? redSignalIcon2 : greenSignalIcon2
             );
+            if (details?.message) {
+              setMessage(details.message);
+            }
           }
         }
 
@@ -220,20 +224,6 @@ export default function LeafletDrawMap() {
   const signalPosition2 = [28.571, 77.209];
   const [signalIcon2, setSignalIcon2] = useState(greenSignalIcon2);
 
-  // useEffect(() => {
-  //   const timer = setTimeout(() => {
-
-  //   }, 15000);
-
-  //   // Cleanup timer when component unmounts
-  //   return () => clearTimeout(timer);
-  // }, [signalIcon]);
-  // useEffect(() => {
-  //   // const hasTraffic = pointsNearSignal(movingPoints, signalPosition);
-
-  //   setSignalIcon(hasTraffic ? redSignalIcon : greenSignalIcon);
-  // }, [movingPoints]); // runs whenever moving points move
-
   // image upload
   const [imagePreview, setImagePreview] = useState(null);
   const [response, setResponse] = useState(null);
@@ -257,29 +247,21 @@ export default function LeafletDrawMap() {
     setResponse(data);
   }
 
+  //popup
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    if (message) {
+      setVisible(true);
+      const t = setTimeout(() => setVisible(false), 3000);
+      return () => clearTimeout(t);
+    }
+  }, [message]);
+
+
+
   return (
     <>
-      <div>
-        <h2>Upload Traffic Image</h2>
-
-        <input type="file" accept="image/*" onChange={handleUpload} />
-
-        {imagePreview && (
-          <img
-            src={imagePreview}
-            alt="uploaded"
-            style={{ width: "400px", marginTop: "20px" }}
-          />
-        )}
-
-        {response && (
-          <div>
-            <h3>Detections</h3>
-            <p>Vehicle Count: {response.vehicle_count}</p>
-            <pre>{JSON.stringify(response.signal, null, 2)}</pre>
-          </div>
-        )}
-      </div>
       <div>
         <header className="z-[9999] flex sticky top-0 left-0 shrink-0 items-center justify-between border-b border-white/10 bg-background-light px-6 py-3 font-display text-black bg-gray-100 backdrop-blur-sm bg-opacity-95">
           <div className="flex items-center gap-4">
@@ -512,6 +494,40 @@ export default function LeafletDrawMap() {
             )}
           </motion.div>
         </div>
+      </div>
+      {visible && (
+        <div
+          className="
+            z-[999999] fixed top-[10vh] right-0 -translate-x-1/2
+            bg-[#111827]/80 backdrop-blur-xl
+            text-white px-4 py-2
+            rounded-xl shadow-lg
+            animate-fadeInUp
+          "
+        >
+          {message}
+        </div>
+      )}
+      <div>
+        <h2>Upload Traffic Image</h2>
+
+        <input type="file" accept="image/*" onChange={handleUpload} />
+
+        {imagePreview && (
+          <img
+            src={imagePreview}
+            alt="uploaded"
+            style={{ width: "400px", marginTop: "20px" }}
+          />
+        )}
+
+        {response && (
+          <div>
+            <h3>Detections</h3>
+            <p>Vehicle Count: {response.vehicle_count}</p>
+            <pre>{JSON.stringify(response.signal, null, 2)}</pre>
+          </div>
+        )}
       </div>
     </>
   );
