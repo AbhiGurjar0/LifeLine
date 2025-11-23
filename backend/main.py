@@ -108,8 +108,9 @@ def predict_next_density(current_NS, current_EW):
 def read_root():
     return {"message": "WebSocket Traffic System Running ✅"}
 
-
 ## getting route cords
+
+route_initialized = 0
 
 
 @app.get("/route")
@@ -118,12 +119,13 @@ async def route(
     start_lon: float,
     end_lat: float,
     end_lon: float,
-   
 ):
     # global route_coords, moving_points, route_chunks
-    global routes
+    global route_initialized, routes
     # cleanLon = start_lon.trim()
-
+    if route_initialized==2:
+        print("Route already initialized. Skipping...")
+        return
 
     url = (
         f"https://api.tomtom.com/routing/1/calculateRoute/"
@@ -160,6 +162,8 @@ async def route(
     else:
         routes[0] = routes[1]  # shift last two forward
         routes[1] = route
+
+    route_initialized+=1
     asyncio.create_task(simulation_loop())
     return {"routes": route}
 
@@ -178,10 +182,6 @@ async def detect(file: UploadFile = File(...), logged_in: bool = Depends(is_logg
     return {"vehicle_count": count, "vehicles": boxes}
 
 
-#  SIMULATION LOOP Calling
-# @app.on_event("startup")
-# async def start_simulation():
-#     asyncio.create_task(simulation_loop())
 
 
 ## directional calculation
@@ -284,6 +284,7 @@ async def update_signal(signal_number, predicted_A, predicted_B):
 
     # load current db state for this signal
     signal_dt = await get_traffic_signal(signal_number)
+
     sig = signal_dt["signal"][0]
 
     # ensure types / safe defaults
@@ -409,6 +410,7 @@ async def simulation_loop():
     while True:
         # refresh signals each tick so we have latest DB state
         data = await get_traffic_signals()
+        # print("Fetched signals:", data)
         signals = data.get("signals", [])
 
         if not routes[0].get("route_coords") or not moving_points:
@@ -514,6 +516,8 @@ async def simulation_loop():
                         "pred_EW": predicted_EW,
                         "All_details": get_signal_details,
                         "message": message,
+                        "name": signal.get("name"),
+                        "prediction":signal.get("prediction"),
                     }
 
             # chunk status

@@ -26,6 +26,7 @@ async def add_traffic_signal(new_signal: TrafficSignal):
     is_Exist = collection.find_one({"location": new_signal.location})
     if is_Exist:
         return {"message": "Traffic signal at this location already exists"}
+    print("Adding new traffic signal:", new_signal)
     collection.insert_one(dict(new_signal))
     return {"message": "Traffic signal added successfully"}
 

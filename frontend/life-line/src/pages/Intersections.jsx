@@ -4,43 +4,37 @@ import { motion } from "framer-motion";
 import { Signal_Context } from "../context/SignalContext.jsx";
 
 export default function TrafficSignalUI() {
-  const [signals, setSignals] = useState([
-    {
-      id: 1,
-      name: "Signal 1 — Moti Bagh",
-      phase: "NS",
-      remaining: 15,
-      prediction: "Medium",
-      location: [28.6139, 77.209],
-      signal_Number: 1,
-      status: ["Green", "Red"],
-      signal_Time: 30,
-      waiting_Time: { NS: 10, EW: 5 },
-    },
-    {
-      id: 2,
-      name: "Signal 2 — South Ex",
-      phase: "EW",
-      remaining: 8,
-      prediction: "High",
-      location: [28.567, 77.234],
-      signal_Number: 2,
-      status: ["Red", "Green"],
-      signal_Time: 25,
-      waiting_Time: { NS: 15, EW: 3 },
-    },
-  ]);
+  const [signals, setSignals] = useState([]);
   const contextValue = useContext(Signal_Context);
-  console.log("Context Value:", contextValue);
-  setSignals({
-    ...signals,
-    phase: contextValue.phase,
-    remaining: contextValue.remaining,
-    NS: contextValue.NS,
-    EW: contextValue.EW,
-    wait_time: contextValue.wait_time,
-    prediction: contextValue.prediction,
-  });
+  useEffect(() => {
+    if (!contextValue || contextValue.length === 0) return;
+
+    setSignals((prev) => {
+      const updated = [...prev];
+
+      contextValue.forEach((signal, i) => {
+        console.log("Updating signal:", signal);
+        updated[i] = {
+          ...updated[i],
+          phase: signal?.phase ?? updated[i]?.phase,
+          remaining: signal?.remaining ?? updated[i]?.remaining,
+          NS: signal?.NS ?? updated[i]?.NS,
+          EW: signal?.EW ?? updated[i]?.EW,
+          waiting_Time: [
+            signal?.wait_time?.NS ?? updated[i]?.waiting_Time?.[0],
+            signal?.wait_time?.EW ?? updated[i]?.waiting_Time?.[1],
+          ],
+          prediction: signal?.prediction ?? updated[i]?.prediction,
+          status: signal?.phase === "NS" ? ["Green", "Red"] : ["Red", "Green"],
+          name: signal?.name ?? updated[i]?.name,
+          signal_Number: signal?.signal_Number ?? updated[i]?.signal_Number,
+          prediction: signal?.prediction ?? updated[i]?.prediction,
+        };
+      });
+
+      return updated;
+    });
+  }, [contextValue]);
 
   const [open, setOpen] = useState(false);
   const [selectedSignal, setSelectedSignal] = useState(null);
@@ -84,14 +78,14 @@ export default function TrafficSignalUI() {
   //   return () => clearInterval(interval);
   // }, []);
 
-  // function handleChange(e) {
-  //   setForm({
-  //     ...form,
-  //     [e.target.name]: e.target.value,
-  //   });
-  // }
+  function handleChange(e) {
+    setForm({
+      ...form,
+      [e.target.name]: e.target.value,
+    });
+  }
 
-  function submitForm() {
+  async function submitForm() {
     const newSignal = {
       id: Date.now(),
       signal_Number: Number(form.signal_Number),
@@ -107,8 +101,15 @@ export default function TrafficSignalUI() {
       },
       prediction: "Medium",
     };
+    console.log("Adding new signal:", newSignal);
+    await fetch("http://localhost:8000/traffic/add_signal", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(newSignal),
+    });
 
-    // setSignals((prev) => [...prev, newSignal]);
     setOpen(false);
     setForm({
       signal_Number: "",
@@ -257,7 +258,6 @@ export default function TrafficSignalUI() {
       </header>
 
       <div className="flex mt-14">
-        {/* Sidebar */}
         <div className="w-60 h-screen fixed">
           <Sidebar />
         </div>
@@ -319,7 +319,6 @@ export default function TrafficSignalUI() {
             </button>
           </div>
         </div>
-
         {/* Filter Tabs */}
         {/* <div className="flex gap-2 mb-6">
           {["all", "active", "critical"].map((tab) => (
@@ -339,128 +338,129 @@ export default function TrafficSignalUI() {
                 ? signals.filter((s) => s.remaining > 5).length
                 : signals.filter((s) => s.remaining <= 5).length}
               ) */}
-            {/* </button> */}
-          {/* ))} */}
-        {/* </div> */} */
-
+        {/* </button> */}
+        {/* ))} */}
+        {/* </div> */}
         {/* Signals Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-          {signals.map((signal) => (
-            <div
-              key={signal.id}
-              className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 border border-slate-200 overflow-hidden group"
-            >
-              {/* Header */}
-              <div className="p-6 border-b border-slate-100">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h3 className="text-xl font-bold text-slate-800">
-                      {signal.name}
-                    </h3>
-                    <p className="text-slate-600 text-sm mt-1">
-                      Signal #{signal.signal_Number}
-                    </p>
-                  </div>
-                  <span
-                    className={`px-3 py-1 rounded-full text-xs font-semibold ${getPredictionColor(
-                      signal.prediction
-                    )}`}
-                  >
-                    {signal.prediction} Traffic
-                  </span>
-                </div>
-              </div>
-
-              {/* Content */}
-              <div className="p-6">
-                {/* Timer */}
-                <div className="flex items-center justify-between mb-4">
-                  <span className="text-slate-600 font-medium">
-                    Time Remaining
-                  </span>
-                  <div
-                    className={`text-2xl font-bold ${
-                      signal.remaining <= 5
-                        ? "text-red-600 animate-pulse"
-                        : "text-slate-800"
-                    }`}
-                  >
-                    {signal.remaining}s
-                  </div>
-                </div>
-
-                {/* Signal Status */}
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                  <div className="text-center">
-                    <div className="text-sm font-medium text-slate-600 mb-2">
-                      North-South
+          {signals &&
+            signals.map((signal) => (
+              <div
+                key={signal.id}
+                className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 border border-slate-200 overflow-hidden group"
+              >
+                {/* Header */}
+                <div className="p-6 border-b border-slate-100">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h3 className="text-xl font-bold text-slate-800">
+                        {signal.name}
+                      </h3>
+                      <p className="text-slate-600 text-sm mt-1">
+                        Signal #{signal.signal_Number}
+                      </p>
                     </div>
-                    <div
-                      className={`w-12 h-12 rounded-full mx-auto flex items-center justify-center text-white font-bold ${getStatusColor(
-                        signal.status[0]
+                    <span
+                      className={`px-3 py-1 rounded-full text-xs font-semibold ${getPredictionColor(
+                        signal.prediction
                       )}`}
                     >
-                      {signal.status[0].charAt(0)}
-                    </div>
+                      {signal.prediction} Traffic
+                    </span>
                   </div>
-                  <div className="text-center">
-                    <div className="text-sm font-medium text-slate-600 mb-2">
-                      East-West
-                    </div>
+                </div>
+
+                {/* Content */}
+                <div className="p-6">
+                  {/* Timer */}
+                  <div className="flex items-center justify-between mb-4">
+                    <span className="text-slate-600 font-medium">
+                      Time Remaining
+                    </span>
                     <div
-                      className={`w-12 h-12 rounded-full mx-auto flex items-center justify-center text-white font-bold ${getStatusColor(
-                        signal.status[1]
-                      )}`}
+                      className={`text-2xl font-bold ${
+                        signal.remaining <= 5
+                          ? "text-red-600 animate-pulse"
+                          : "text-slate-800"
+                      }`}
                     >
-                      {signal.status[1].charAt(0)}
+                      {signal.remaining}s
+                    </div>
+                  </div>
+
+                  {/* Signal Status */}
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div className="text-center">
+                      <div className="text-sm font-medium text-slate-600 mb-2">
+                        North-South
+                      </div>
+                      <div
+                        className={`w-12 h-12 rounded-full mx-auto flex items-center justify-center text-white font-bold ${getStatusColor(
+                          signal.status[0]
+                        )}`}
+                      >
+                        {signal.status[0].charAt(0)}
+                      </div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-sm font-medium text-slate-600 mb-2">
+                        East-West
+                      </div>
+                      <div
+                        className={`w-12 h-12 rounded-full mx-auto flex items-center justify-center text-white font-bold ${getStatusColor(
+                          signal.status[1]
+                        )}`}
+                      >
+                        {signal.status[1].charAt(0)}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Details */}
+                  <div className="space-y-3 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">Cycle Time</span>
+                      <span className="font-semibold">
+                        {signal.signal_Time}s
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">Waiting NS</span>
+                      <span className="font-semibold">
+                        {signal.waiting_Time[0]}s
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">Waiting EW</span>
+                      <span className="font-semibold">
+                        {signal.waiting_Time[1]}s
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">Location</span>
+                      {/* <span className="font-semibold">
+                        {signal.location[0].toFixed(4)},{" "}
+                        {signal.location[1].toFixed(4)}
+                      </span> */}
                     </div>
                   </div>
                 </div>
 
-                {/* Details */}
-                <div className="space-y-3 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-slate-600">Cycle Time</span>
-                    <span className="font-semibold">{signal.signal_Time}s</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-600">Waiting NS</span>
-                    <span className="font-semibold">
-                      {signal.waiting_Time.NS}s
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-600">Waiting EW</span>
-                    <span className="font-semibold">
-                      {signal.waiting_Time.EW}s
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-600">Location</span>
-                    <span className="font-semibold">
-                      {signal.location[0].toFixed(4)},{" "}
-                      {signal.location[1].toFixed(4)}
-                    </span>
-                  </div>
+                {/* Actions */}
+                <div className="px-6 py-4 bg-slate-50 flex justify-end gap-2">
+                  <button
+                    onClick={() => deleteSignal(signal.id)}
+                    className="px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors font-medium"
+                  >
+                    Delete
+                  </button>
+                  <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">
+                    Edit
+                  </button>
                 </div>
               </div>
-
-              {/* Actions */}
-              <div className="px-6 py-4 bg-slate-50 flex justify-end gap-2">
-                <button
-                  onClick={() => deleteSignal(signal.id)}
-                  className="px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors font-medium"
-                >
-                  Delete
-                </button>
-                <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">
-                  Edit
-                </button>
-              </div>
-            </div>
-          ))}
+            ))}
         </div>
-
         {signals.length === 0 && (
           <div className="text-center py-12">
             <div className="text-slate-400 text-6xl mb-4">🚦</div>

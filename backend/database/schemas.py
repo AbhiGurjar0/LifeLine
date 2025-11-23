@@ -11,6 +11,7 @@ def all_users_data(users):
 def trafficSignalData(signal):
     return {
         "id": str(signal["_id"]),
+        "name": signal.get("name"),
         "signal_Number": signal.get("signal_Number"),
         "location": tuple(signal["location"]) if signal.get("location") else None,
         "status": tuple(signal.get("status")) if signal.get("status") else None,
