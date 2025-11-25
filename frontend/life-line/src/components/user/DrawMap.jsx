@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { useContext } from "react";
+import { Signal_Context } from "../../context/SignalContext";
 import L, { PolyUtil, popup } from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "leaflet-draw/dist/leaflet.draw.css";
@@ -65,6 +67,10 @@ const redSignalIcon2 = L.divIcon({
 });
 
 export default function LeafletDrawMap() {
+  //context Api
+
+  const contextValue = useContext(Signal_Context);
+
   const isAdmin = true;
   const [coords, setCoords] = useState([]);
   const [routeChunks, setRouteChunks] = useState([]);
@@ -78,16 +84,39 @@ export default function LeafletDrawMap() {
 
   const [routesData, setRoutesData] = useState([]);
 
-  const [signals, setSignals] = useState({
-    id: 1,
-    name: "Signal 1 — Moti Bagh",
-    phase: "NS",
-    remaining: 15,
-    NS: 10,
-    EW: 5,
-    wait_time: 23,
-    prediction: "Medium",
-  });
+  const [signals, setSignals] = useState([
+
+  ]);
+  useEffect(() => {
+    if (!contextValue || contextValue.length === 0) return;
+
+    setSignals((prev) => {
+      const updated = [...prev];
+
+      contextValue.forEach((signal, i) => {
+        console.log("Updating signal:", signal);
+        updated[i] = {
+          ...updated[i],
+          phase: signal?.phase ?? updated[i]?.phase,
+          remaining: signal?.remaining ?? updated[i]?.remaining,
+          NS: signal?.NS ?? updated[i]?.NS,
+          EW: signal?.EW ?? updated[i]?.EW,
+          wait_Time: [
+            signal?.wait_time?.NS ?? updated[i]?.wait_time?.NS,
+            signal?.wait_time?.EW ?? updated[i]?.wait_time?.EW,
+          ],
+          prediction: signal?.prediction ?? updated[i]?.prediction,
+          status: signal?.phase === "NS" ? ["Green", "Red"] : ["Red", "Green"],
+          name: signal?.name ?? updated[i]?.name,
+          signal_Number: signal?.signal_Number ?? updated[i]?.signal_Number,
+          location: signal?.location ?? updated[i]?.location,
+        };
+      });
+
+      return updated;
+    });
+  }, [contextValue]);
+  console.log("Signals state updated i DrwaBox:", signals);
 
   const getPhaseColor = (phase) =>
     phase === "NS" ? "bg-green-500" : "bg-yellow-500";
@@ -129,25 +158,25 @@ export default function LeafletDrawMap() {
           const all = details?.All_details;
 
           if (details && all) {
-            setSignals((prev) => ({
-              ...prev,
-              remaining: all.remain_time ?? prev.remaining,
-              NS: details.pred_NS ?? prev.NS,
-              EW: details.pred_EW ?? prev.EW,
-              phase: all.curr_phase ?? prev.phase,
-              wait_time: all.wait_time ?? prev.wait_time,
-              curr_NS: details.ns ?? prev.curr_NS,
-              curr_EW: details.ew ?? prev.curr_EW,
-              curr_state: all.curr_phase ?? prev.curr_state,
-            }));
+            // setSignals((prev) => ({
+            //   ...prev,
+            //   remaining: all.remain_time ?? prev.remaining,
+            //   NS: details.pred_NS ?? prev.NS,
+            //   EW: details.pred_EW ?? prev.EW,
+            //   phase: all.curr_phase ?? prev.phase,
+            //   wait_time: all.wait_time ?? prev.wait_time,
+            //   curr_NS: details.ns ?? prev.curr_NS,
+            //   curr_EW: details.ew ?? prev.curr_EW,
+            //   curr_state: all.curr_phase ?? prev.curr_state,
+            // }));
 
-            setSignalIcon(() =>
-              all.curr_phase === "EW" ? redSignalIcon : greenSignalIcon
-            );
+            // setSignalIcon(() =>
+            //   all.curr_phase === "EW" ? redSignalIcon : greenSignalIcon
+            // );
 
-            setSignalIcon2(() =>
-              all.curr_phase === "NS" ? redSignalIcon2 : greenSignalIcon2
-            );
+            // setSignalIcon2(() =>
+            //   all.curr_phase === "NS" ? redSignalIcon2 : greenSignalIcon2
+            // );
             if (details?.message) {
               setMessage(details.message);
             }
@@ -446,9 +475,12 @@ export default function LeafletDrawMap() {
                         ))}
                       </div>
                     ))}
+                    {signals && signals.map((signal, i) => (
+                      <Marker key={i} position={[signal.location[0], signal.location[1]]} icon={signalIcon} />
+                    ))}
 
-                    <Marker position={signalPosition} icon={signalIcon} />
-                    <Marker position={signalPosition2} icon={signalIcon2} />
+                    {/* <Marker position={signalPosition} icon={signalIcon} />
+                    <Marker position={signalPosition2} icon={signalIcon2} /> */}
                   </MapContainer>
                 </div>
               </motion.div>
@@ -473,7 +505,7 @@ export default function LeafletDrawMap() {
                 </div>
 
                 <div className="p-6">
-                  {signals && (
+                  {signals && signals[0] && (
                     <motion.div
                       key={signals.id}
                       whileHover={{ scale: 1.02, y: -2 }}
@@ -489,11 +521,11 @@ export default function LeafletDrawMap() {
                               className="font-bold text-lg text-white group-hover:text-blue-300 transition-colors"
                               whileHover={{ x: 5 }}
                             >
-                              {signals.name}
+                              {signals[0].name}
                             </motion.h3>
                             <motion.span
                               className={`px-3 py-1.5 rounded-full text-xs font-semibold ${getPhaseColor(
-                                signals.phase
+                                signals[0].phase
                               )} text-white shadow-lg`}
                               whileHover={{ scale: 1.1 }}
                               animate={{
@@ -505,7 +537,7 @@ export default function LeafletDrawMap() {
                               }}
                               transition={{ duration: 2, repeat: Infinity }}
                             >
-                              {signals.phase === "NS"
+                              {signals[0].phase === "NS"
                                 ? "North-South"
                                 : "East-West"}
                             </motion.span>
@@ -524,12 +556,12 @@ export default function LeafletDrawMap() {
                               </span>
                               <span
                                 className={`text-lg font-bold ${
-                                  signals.remaining <= 5
+                                  signals[0].remaining <= 5
                                     ? "text-red-400 animate-pulse"
                                     : "text-blue-400"
                                 }`}
                               >
-                                {signals.remaining}s
+                                {signals[0].remaining}s
                               </span>
                             </motion.div>
 
@@ -542,7 +574,7 @@ export default function LeafletDrawMap() {
                             >
                               <span>🚗 Predicted Vehicles</span>
                               <span className="font-semibold text-amber-400">
-                                NS={signals.NS} | EW={signals.EW}
+                                NS={signals[0].NS} | EW={signals[0].EW}
                               </span>
                             </motion.div>
 
@@ -557,16 +589,16 @@ export default function LeafletDrawMap() {
                                 <span>📊 Congestion Level</span>
                                 <span
                                   className={`font-semibold ${getPredictionColor(
-                                    signals.prediction
+                                    signals[0].prediction
                                   )}`}
                                 >
-                                  {signals.prediction}
+                                  {signals[0].prediction}
                                 </span>
                               </div>
                               <Progress
                                 className="w-full bg-slate-600 h-2 rounded-full overflow-hidden"
                                 value={Math.min(
-                                  (signals.NS + signals.EW) * 3,
+                                  (signals[0].NS + signals[0].EW) * 3,
                                   100
                                 )}
                               />
@@ -581,7 +613,7 @@ export default function LeafletDrawMap() {
                                   Wait Time NS
                                 </div>
                                 <div className="font-semibold text-green-400">
-                                  {signals.wait_time.NS}s
+                                  {signals[0].wait_Time[0]}s
                                 </div>
                               </div>
                               <div className="text-center p-2 bg-slate-700/50 rounded-lg">
@@ -589,7 +621,7 @@ export default function LeafletDrawMap() {
                                   Wait Time EW
                                 </div>
                                 <div className="font-semibold text-green-400">
-                                  {signals.wait_time.EW}s
+                                  {signals[0].wait_Time[1]}s
                                 </div>
                               </div>
                             </motion.div>

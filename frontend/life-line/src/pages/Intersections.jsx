@@ -29,6 +29,7 @@ export default function TrafficSignalUI() {
           name: signal?.name ?? updated[i]?.name,
           signal_Number: signal?.signal_Number ?? updated[i]?.signal_Number,
           prediction: signal?.prediction ?? updated[i]?.prediction,
+          location: signal?.location ?? updated[i]?.location,
         };
       });
 
@@ -438,10 +439,10 @@ export default function TrafficSignalUI() {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-slate-600">Location</span>
-                      {/* <span className="font-semibold">
+                      <span className="font-semibold">
                         {signal.location[0].toFixed(4)},{" "}
                         {signal.location[1].toFixed(4)}
-                      </span> */}
+                      </span>
                     </div>
                   </div>
                 </div>

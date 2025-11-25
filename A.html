@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jaipur - Signal Edit</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            background-color: #2c3e50;
+            color: white;
+            padding: 20px;
+            border-radius: 8px 8px 0 0;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+
+        .signal-info {
+            display: flex;
+            justify-content: space-between;
+            font-size: 14px;
+            opacity: 0.8;
+        }
+
+        .card {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .card h2 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+
+        input,
+        select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+
+        .signal-status {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+
+        .signal-direction {
+            flex: 1;
+            padding: 15px;
+            text-align: center;
+            border-radius: 8px;
+            margin: 0 10px;
+        }
+
+        .north-south {
+            background-color: #e8f5e9;
+            border-left: 4px solid #4caf50;
+        }
+
+        .east-west {
+            background-color: #ffebee;
+            border-left: 4px solid #f44336;
+        }
+
+        .signal-light {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            margin: 0 auto 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+
+        .green {
+            background-color: #4caf50;
+        }
+
+        .red {
+            background-color: #f44336;
+        }
+
+        .amber {
+            background-color: #ff9800;
+        }
+
+        .location {
+            display: flex;
+            gap: 10px;
+        }
+
+        .location input {
+            flex: 1;
+        }
+
+        .button-group {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 30px;
+        }
+
+        .btn {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-delete {
+            background-color: #f44336;
+            color: white;
+        }
+
+        .btn-save {
+            background-color: #4caf50;
+            color: white;
+        }
+
+        .btn-cancel {
+            background-color: #9e9e9e;
+            color: white;
+        }
+
+        .btn:hover {
+            opacity: 0.9;
+            transform: translateY(-2px);
+        }
+
+        @media (max-width: 600px) {
+            .signal-status {
+                flex-direction: column;
+            }
+
+            .signal-direction {
+                margin: 10px 0;
+            }
+
+            .button-group {
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .btn {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>Jaipur</h1>
+            <div class="signal-info">
+                <span>Signal #0</span>
+                <span>Trainer Traffic</span>
+            </div>
+        </header>
+
+        <div class="card">
+            <h2>Signal Status</h2>
+
+            <!-- Dropdown Wrapper -->
+            <div class="form-group" style="margin-bottom: 20px;">
+                <label for="directionSelect"><strong>Select Direction</strong></label>
+                <select id="directionSelect">
+                    <option value="NS">North-South</option>
+                    <option value="EW">East-West</option>
+                </select>
+            </div>
+
+            <div class="signal-status">
+
+                <div class="signal-direction north-south" id="nsSection">
+                    <h3>North-South</h3>
+                    <div class="signal-light green">G</div>
+                    <p>Time Remaining: <strong>0s</strong></p>
+                </div>
+
+                <div class="signal-direction east-west" id="ewSection">
+                    <h3>East-West</h3>
+                    <div class="signal-light red">R</div>
+                    <p>Time Remaining: <strong>0s</strong></p>
+                </div>
+            </div>
+
+
+            <div class="form-group">
+                <label for="cycle-time">Cycle Time</label>
+                <input type="number" id="cycle-time" value="13">
+            </div>
+
+            <div class="form-group">
+                <label for="waiting-ns">Signal Time</label>
+                <input type="number" id="signal-time" value="5">
+            </div>
+
+
+        </div>
+
+        <div class="card">
+            <h2>Location</h2>
+            <div class="location">
+                <div class="form-group">
+                    <label for="latitude">Latitude</label>
+                    <input type="text" id="latitude" value="28.3450">
+                </div>
+                <div class="form-group">
+                    <label for="longitude">Longitude</label>
+                    <input type="text" id="longitude" value="77.3450">
+                </div>
+            </div>
+        </div>
+
+        <div class="button-group">
+            <button class="btn btn-delete">Delete</button>
+            <div>
+                <button class="btn btn-cancel">Cancel</button>
+                <button class="btn btn-save">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // Form submission handling
+            const saveButton = document.querySelector('.btn-save');
+            const cancelButton = document.querySelector('.btn-cancel');
+            const deleteButton = document.querySelector('.btn-delete');
+
+            saveButton.addEventListener('click', function () {
+                // In a real application, this would send data to a server
+                alert('Changes saved successfully!');
+            });
+
+            cancelButton.addEventListener('click', function () {
+                if (confirm('Are you sure you want to cancel? Any unsaved changes will be lost.')) {
+                    // In a real application, this would navigate back or reset the form
+                    window.location.href = 'signal-list.html';
+                }
+            });
+
+            deleteButton.addEventListener('click', function () {
+                if (confirm('Are you sure you want to delete this signal? This action cannot be undone.')) {
+                    // In a real application, this would send a delete request to a server
+                    alert('Signal deleted!');
+                    window.location.href = 'signal-list.html';
+                }
+            });
+        });
+
+        //for direction selection
+        const select = document.getElementById("directionSelect");
+        const ns = document.getElementById("nsSection");
+        const ew = document.getElementById("ewSection");
+
+        select.addEventListener("change", () => {
+            if (select.value === "NS") {
+                ns.style.display = "block";
+                ew.style.display = "none";
+            } else {
+                ew.style.display = "block";
+                ns.style.display = "none";
+            }
+        });
+
+        // Default: show NS
+        ns.style.display = "block";
+        ew.style.display = "none";
+    </script>
+</body>
+
+
+</html>

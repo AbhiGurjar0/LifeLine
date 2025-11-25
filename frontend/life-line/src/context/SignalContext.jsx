@@ -44,6 +44,7 @@ const SignalContext = (props) => {
                 curr_state: all?.curr_phase,
                 name: detail?.name,
                 prediction: all?.prediction,
+                location: detail?.location,
               });
             }
           }

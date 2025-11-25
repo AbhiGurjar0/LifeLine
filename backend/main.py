@@ -518,6 +518,8 @@ async def simulation_loop():
                         "message": message,
                         "name": signal.get("name"),
                         "prediction":signal.get("prediction"),
+                        "location":signal.get("location"),
+                        "waiting_Time":signal.get("waiting_Time"),
                     }
 
             # chunk status

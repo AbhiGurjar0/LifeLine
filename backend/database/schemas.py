@@ -20,6 +20,7 @@ def trafficSignalData(signal):
         "waiting_Time": (
             (signal.get("waiting_Time")) if signal.get("waiting_Time") else None
         ),
+        "prediction": signal.get("prediction"),
     }
 
 
