@@ -22,13 +22,13 @@ const SignalContext = (props) => {
           Object.keys(data.data_packet.signal_details).length > 0
         ) {
           const details = data.data_packet.signal_details;
-          console.log("Signal details:", Object.keys(details).length);
+          // console.log("Signal details:", Object.keys(details).length);
 
           const updatedSignals = [];
 
           for (let i = 0; i <= Object.keys(details).length; i++) {
             const detail = details[Object.keys(details)[i]];
-            console.log("Processing detail for signal:", i, detail);
+            // console.log("Processing detail for signal:", i, detail);
             const all = detail?.All_details;
 
             if (detail && all) {
@@ -45,11 +45,13 @@ const SignalContext = (props) => {
                 name: detail?.name,
                 prediction: all?.prediction,
                 location: detail?.location,
+                id: detail?.signal_id,
+                signal_For:detail?.signal_For
               });
             }
           }
           setSignals(updatedSignals);
-          console.log("Updated signals:", updatedSignals);
+          // console.log("Updated signals:", updatedSignals);
           return;
         }
 

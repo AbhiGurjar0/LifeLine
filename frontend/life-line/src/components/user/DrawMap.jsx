@@ -84,9 +84,7 @@ export default function LeafletDrawMap() {
 
   const [routesData, setRoutesData] = useState([]);
 
-  const [signals, setSignals] = useState([
-
-  ]);
+  const [signals, setSignals] = useState([]);
   useEffect(() => {
     if (!contextValue || contextValue.length === 0) return;
 
@@ -94,7 +92,7 @@ export default function LeafletDrawMap() {
       const updated = [...prev];
 
       contextValue.forEach((signal, i) => {
-        console.log("Updating signal:", signal);
+        // console.log("Updating signal:", signal);
         updated[i] = {
           ...updated[i],
           phase: signal?.phase ?? updated[i]?.phase,
@@ -139,7 +137,7 @@ export default function LeafletDrawMap() {
     socket.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-        console.log("Received:", data);
+        // console.log("Received:", data);
         if (data.routes) {
           setRoutesData(data.routes);
         }
@@ -475,9 +473,18 @@ export default function LeafletDrawMap() {
                         ))}
                       </div>
                     ))}
-                    {signals && signals.map((signal, i) => (
-                      <Marker key={i} position={[signal.location[0], signal.location[1]]} icon={signalIcon} />
-                    ))}
+                    {signals &&
+                      signals.map((signal, i) => (
+                        <Marker
+                          key={i}
+                          position={[signal.location[0], signal.location[1]]}
+                          icon={
+                            signal.phase === "NS" && signal.signal_For !== "NS"
+                              ? signalIcon
+                              : redSignalIcon
+                          }
+                        />
+                      ))}
 
                     {/* <Marker position={signalPosition} icon={signalIcon} />
                     <Marker position={signalPosition2} icon={signalIcon2} /> */}

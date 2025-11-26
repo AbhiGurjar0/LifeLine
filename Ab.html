@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>
+        .steps {
+            margin: 100px auto;
+            max-width: 600px;
+        }
+
+        .card {
+            opacity: 0;
+            transform: translateY(80px);
+            background: white;
+            margin: 20px 0;
+            padding: 20px;
+            border-radius: 12px;
+            font-size: 20px;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+
+<body>
+    <section class="steps">
+        <div class="card">Step 1: Create your account</div>
+        <div class="card">Step 2: Add your first data</div>
+        <div class="card">Step 3: Customize your dashboard</div>
+        <div class="card">Step 4: Explore detailed analytics</div>
+    </section>
+
+
+</body>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+
+<script>
+    gsap.registerPlugin(ScrollTrigger);
+
+    gsap.utils.toArray(".card").forEach((card, index) => {
+        gsap.from(card, {
+            opacity: 0,
+            y: 80,
+            scale: 0.9,
+            duration: 1,
+            ease: "power3.out",
+            delay: index * 0.15,
+            scrollTrigger: {
+                trigger: card,
+                start: "top 85%",
+            }
+        });
+    });
+</script>
+
+</html>

@@ -22,3 +22,5 @@ class TrafficSignal(BaseModel):
     signal_Time: Optional[int] = None  # in seconds
     waiting_Time: Dict[str, int]  # in seconds
     prediction: Optional[str] = None  # e.g., "High", "Medium", "Low"
+    signal_For:str #"Ns", "Ew"
+    color:str

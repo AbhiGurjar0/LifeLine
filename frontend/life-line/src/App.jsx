@@ -11,6 +11,7 @@ import { Routes, Route } from "react-router-dom";
 
 import MapExample from "./components/user/MapExample";
 import Intersections from "./pages/Intersections";
+import SignalEdit from "./components/admin/EditSignal";
 
 function App() {
   return (
@@ -18,7 +19,9 @@ function App() {
       <Routes>
         <Route path="/" element={<Dashboard />} />
         <Route path="/Alerts" element={<AlertsPage />} />
-        <Route path="/Intersections" element={<Intersections />} />
+        <Route path="/Intersections" element={<Intersections />}>
+          <Route path="edit/:id" element={<SignalEdit />} />
+        </Route>
         <Route path="/OptimalRoute" element={<OptimalRoute />} />
         <Route path="/Reports" element={<Reports />} />
         <Route path="login" element={<Login />} />

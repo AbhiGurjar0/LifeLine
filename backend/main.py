@@ -108,6 +108,7 @@ def predict_next_density(current_NS, current_EW):
 def read_root():
     return {"message": "WebSocket Traffic System Running ✅"}
 
+
 ## getting route cords
 
 route_initialized = 0
@@ -123,7 +124,7 @@ async def route(
     # global route_coords, moving_points, route_chunks
     global route_initialized, routes
     # cleanLon = start_lon.trim()
-    if route_initialized==2:
+    if route_initialized == 2:
         print("Route already initialized. Skipping...")
         return
 
@@ -163,7 +164,7 @@ async def route(
         routes[0] = routes[1]  # shift last two forward
         routes[1] = route
 
-    route_initialized+=1
+    route_initialized += 1
     asyncio.create_task(simulation_loop())
     return {"routes": route}
 
@@ -172,6 +173,7 @@ async def route(
 async def detect(file: UploadFile = File(...), logged_in: bool = Depends(is_logged_in)):
     # Read image
     contents = await file.read()
+    print(contents)
     nparr = np.frombuffer(contents, np.uint8)
     frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
@@ -180,8 +182,6 @@ async def detect(file: UploadFile = File(...), logged_in: bool = Depends(is_logg
 
     # Send back the detection summary
     return {"vehicle_count": count, "vehicles": boxes}
-
-
 
 
 ## directional calculation
@@ -517,9 +517,13 @@ async def simulation_loop():
                         "All_details": get_signal_details,
                         "message": message,
                         "name": signal.get("name"),
-                        "prediction":signal.get("prediction"),
-                        "location":signal.get("location"),
-                        "waiting_Time":signal.get("waiting_Time"),
+                        "prediction": signal.get("prediction"),
+                        "location": signal.get("location"),
+                        "waiting_Time": signal.get("waiting_Time"),
+                        "signal_id": signal.get("id"),
+                        "signal_For": signal.get("signal_For"),
+                        # "color":color
+                        # "signal_color":signal.get('color'),
                     }
 
             # chunk status
